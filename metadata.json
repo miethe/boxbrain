@@ -1,0 +1,5 @@
+{
+  "name": "GitKB - Git-backed Knowledge Repo",
+  "description": "A low-friction web GUI for saving and finding presales and delivery collateral, backed by Git.",
+  "requestFramePermissions": []
+}
