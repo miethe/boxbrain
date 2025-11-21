@@ -96,6 +96,17 @@ export interface InboxItem {
 }
 
 export interface NavSection {
-    label: string;
-    items: { label: string; href: string; icon: any }[];
+  label: string;
+  items: { label: string; href: string; icon: any }[];
+}
+
+export interface FacetItem {
+  value: string;
+  count: number;
+}
+
+export interface Facets {
+  offering?: FacetItem[];
+  related_technologies?: FacetItem[];
+  tags?: FacetItem[];
 }

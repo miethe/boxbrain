@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { FindPage } from './pages/FindPage';
 import { SavePage } from './pages/SavePage';
@@ -11,43 +11,29 @@ import { MetadataPage } from './pages/admin/MetadataPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 
 const App: React.FC = () => {
-  const [route, setRoute] = useState(window.location.hash || '#/find');
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      let hash = window.location.hash || '#/find';
-      // Redirect base /save to /save/import
-      if (hash === '#/save') {
-        window.location.hash = '#/save/import';
-        return;
-      }
-      setRoute(hash);
-    }
-    window.addEventListener('hashchange', handleHashChange);
-    // Initial check
-    handleHashChange();
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  let Component = FindPage;
-  
-  // Route Matching
-  if (route.startsWith('#/save/import')) Component = SavePage;
-  else if (route.startsWith('#/save/create')) Component = CreatePage;
-  else if (route.startsWith('#/deal-guide')) Component = DealGuidePage;
-  
-  // Admin Routes
-  else if (route === '#/admin' || route === '#/admin/analytics') Component = AnalyticsPage;
-  else if (route === '#/admin/governance') Component = GovernancePage;
-  else if (route === '#/admin/metadata') Component = MetadataPage;
-  else if (route === '#/admin/settings') Component = SettingsPage;
-  
   return (
-    <Layout currentRoute={route}>
-      {/* key={route} forces a complete unmount/remount when the route changes, 
-          cleaning up any side effects or portal targets from the previous page */}
-      <Component key={route} />
-    </Layout>
+    <HashRouter>
+      <Layout currentRoute={window.location.hash}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/find" replace />} />
+          <Route path="/find" element={<FindPage />} />
+          
+          {/* Save Routes */}
+          <Route path="/save" element={<Navigate to="/save/import" replace />} />
+          <Route path="/save/import" element={<SavePage />} />
+          <Route path="/save/create" element={<CreatePage />} />
+          
+          <Route path="/deal-guide" element={<DealGuidePage />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" element={<Navigate to="/admin/analytics" replace />} />
+          <Route path="/admin/analytics" element={<AnalyticsPage />} />
+          <Route path="/admin/governance" element={<GovernancePage />} />
+          <Route path="/admin/metadata" element={<MetadataPage />} />
+          <Route path="/admin/settings" element={<SettingsPage />} />
+        </Routes>
+      </Layout>
+    </HashRouter>
   );
 };
 

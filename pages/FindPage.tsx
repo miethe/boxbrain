@@ -1,13 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Search as SearchIcon, Filter, X, Download, FileText, LayoutGrid, 
-  List as ListIcon, Code, Presentation, ChevronDown, ChevronUp, 
+import {
+  Search as SearchIcon, Filter, X, Download, FileText, LayoutGrid,
+  List as ListIcon, Code, Presentation, ChevronDown, ChevronUp,
   ArrowUpDown, Check, Calendar, User, ExternalLink, Briefcase, Star,
   Copy, Flag, MessageSquarePlus, Terminal, Layers, Lock, Globe, Send, Save
 } from 'lucide-react';
-import { api } from '../services/mockApi';
+import { api } from '../services/apiClient';
 import { Asset, AssetMetadata, AssetCategory, Artifact, AssetType, Note, Comment } from '../types';
 import { Badge, Button } from '../components/Common';
 
@@ -25,20 +25,20 @@ export const FindPage: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [facets, setFacets] = useState<Record<string, FacetItem[]> | null>(null);
   const [filters, setFilters] = useState<Partial<Record<keyof AssetMetadata, string>>>({});
-  
+
   // Preview State
   const [previewArtifact, setPreviewArtifact] = useState<Artifact | null>(null);
-  
+
   // New Filters
   const [dateFilter, setDateFilter] = useState<string>('');
   const [fileTypeFilter, setFileTypeFilter] = useState<string[]>([]);
-  
+
   // New Layout/Sort State
   const [activeTab, setActiveTab] = useState<AssetCategory>(AssetCategory.Technical);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [showSortMenu, setShowSortMenu] = useState(false);
-  
+
   // Briefcase / Collections State
   const [briefcase, setBriefcase] = useState<Set<string>>(new Set());
   const [showBriefcaseOnly, setShowBriefcaseOnly] = useState(false);
@@ -74,7 +74,7 @@ export const FindPage: React.FC = () => {
     // Apply tab filter implicitly
     const activeFilters = { ...filters, category: activeTab };
     let data = await api.search(query, activeFilters);
-    
+
     // Filter by Briefcase if active
     if (showBriefcaseOnly) {
       data = data.filter(asset => briefcase.has(asset.id));
@@ -82,26 +82,26 @@ export const FindPage: React.FC = () => {
 
     // Client-side filtering for "Date" and "File Type" (Mock logic)
     if (dateFilter) {
-       const now = new Date();
-       data = data.filter(asset => {
-         const assetDate = new Date(asset.created_at);
-         const diffDays = (now.getTime() - assetDate.getTime()) / (1000 * 3600 * 24);
-         if (dateFilter === '24h') return diffDays <= 1;
-         if (dateFilter === '7d') return diffDays <= 7;
-         if (dateFilter === '30d') return diffDays <= 30;
-         if (dateFilter === 'year') return diffDays <= 365;
-         return true;
-       });
+      const now = new Date();
+      data = data.filter(asset => {
+        const assetDate = new Date(asset.created_at);
+        const diffDays = (now.getTime() - assetDate.getTime()) / (1000 * 3600 * 24);
+        if (dateFilter === '24h') return diffDays <= 1;
+        if (dateFilter === '7d') return diffDays <= 7;
+        if (dateFilter === '30d') return diffDays <= 30;
+        if (dateFilter === 'year') return diffDays <= 365;
+        return true;
+      });
     }
 
     if (fileTypeFilter.length > 0) {
       // Simple mapping based on type or artifacts
       data = data.filter(asset => {
         const typeMap: Record<string, string> = {
-           'win_story': 'deck',
-           'play': 'video',
-           'code_ref': 'code',
-           'template': 'doc'
+          'win_story': 'deck',
+          'play': 'video',
+          'code_ref': 'code',
+          'template': 'doc'
         };
         // Check if asset type maps to selected file types, or if artifacts match
         const assetMainType = typeMap[asset.type] || 'doc';
@@ -127,7 +127,7 @@ export const FindPage: React.FC = () => {
     performSearch();
     api.getFacets().then((data) => setFacets(data as Record<string, FacetItem[]>));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab, dateFilter, fileTypeFilter, sortBy, showBriefcaseOnly]); 
+  }, [filters, activeTab, dateFilter, fileTypeFilter, sortBy, showBriefcaseOnly]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') performSearch();
@@ -146,7 +146,7 @@ export const FindPage: React.FC = () => {
   };
 
   const toggleFileType = (type: string) => {
-    setFileTypeFilter(prev => 
+    setFileTypeFilter(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
   };
@@ -197,11 +197,11 @@ export const FindPage: React.FC = () => {
     } else {
       // Tech Format
       if (selectedAsset.type === AssetType.CodeRef) {
-         textToCopy = `git clone git@github.com:org/${selectedAsset.title.toLowerCase().replace(/ /g, '-')}.git`;
-         alert("Copied Clone Command to Clipboard!");
+        textToCopy = `git clone git@github.com:org/${selectedAsset.title.toLowerCase().replace(/ /g, '-')}.git`;
+        alert("Copied Clone Command to Clipboard!");
       } else {
-         textToCopy = `[${selectedAsset.title}](https://gitkb.internal/assets/${selectedAsset.id})`;
-         alert("Copied Markdown Link to Clipboard!");
+        textToCopy = `[${selectedAsset.title}](https://gitkb.internal/assets/${selectedAsset.id})`;
+        alert("Copied Markdown Link to Clipboard!");
       }
     }
     navigator.clipboard.writeText(textToCopy);
@@ -212,7 +212,7 @@ export const FindPage: React.FC = () => {
       onClick={() => { setActiveTab(cat); setShowBriefcaseOnly(false); }}
       className={`flex items-center px-6 py-3 border-b-2 text-sm font-medium transition-colors
         ${activeTab === cat && !showBriefcaseOnly
-          ? 'border-blue-600 text-blue-600 bg-blue-50/50' 
+          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
           : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
         }`}
     >
@@ -225,7 +225,7 @@ export const FindPage: React.FC = () => {
   const SidebarContent = (
     <div className="p-4 text-sm">
       <div className="mb-2">
-        <button 
+        <button
           onClick={() => setRefineOpen(!refineOpen)}
           className="flex items-center justify-between w-full text-slate-800 font-bold uppercase tracking-wider text-xs mb-4 hover:text-blue-600 transition-colors"
         >
@@ -235,12 +235,12 @@ export const FindPage: React.FC = () => {
 
         {refineOpen && (
           <div className="space-y-6 animate-in slide-in-from-top-2 duration-200">
-             {/* Date Filter */}
+            {/* Date Filter */}
             <div>
               <h3 className="text-xs font-semibold text-slate-500 uppercase mb-2 flex items-center">
                 <Calendar className="w-3 h-3 mr-1" /> Date Modified
               </h3>
-              <select 
+              <select
                 className="w-full bg-white border border-slate-300 text-slate-700 rounded px-2 py-1.5 text-sm focus:ring-blue-500 focus:border-blue-500"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
@@ -266,7 +266,7 @@ export const FindPage: React.FC = () => {
                   { id: 'video', label: 'Video' }
                 ].map((type) => (
                   <label key={type.id} className="flex items-center text-slate-700 cursor-pointer hover:text-blue-600">
-                    <input 
+                    <input
                       type="checkbox"
                       checked={fileTypeFilter.includes(type.id)}
                       onChange={() => toggleFileType(type.id)}
@@ -285,8 +285,8 @@ export const FindPage: React.FC = () => {
                 <div className="space-y-1.5">
                   {(items as FacetItem[]).map((item) => (
                     <label key={item.value} className="flex items-center text-slate-700 cursor-pointer hover:text-blue-600">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={filters[key as keyof AssetMetadata] === item.value}
                         onChange={() => toggleFilter(key as keyof AssetMetadata, item.value)}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 mr-2 w-4 h-4"
@@ -309,80 +309,80 @@ export const FindPage: React.FC = () => {
       {/* File Preview Modal */}
       {previewArtifact && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6" onClick={() => setPreviewArtifact(null)}>
-            <div 
-                className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-                    <div className="flex items-center overflow-hidden">
-                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 mr-3">
-                             <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                            <h3 className="font-bold text-slate-900 truncate">{previewArtifact.name}</h3>
-                            <p className="text-xs text-slate-500 uppercase">{previewArtifact.kind}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                        <a 
-                            href={previewArtifact.uri}
-                            download
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
-                        >
-                            <Download className="w-4 h-4 mr-2" /> Download
-                        </a>
-                        <button 
-                            onClick={() => setPreviewArtifact(null)}
-                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
-                    </div>
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center overflow-hidden">
+                <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 mr-3">
+                  <FileText className="w-5 h-5" />
                 </div>
-                
-                {/* Modal Body - Mock Preview */}
-                <div className="flex-1 overflow-y-auto p-8 bg-white">
-                    <div className="max-w-3xl mx-auto">
-                        <div className="mb-8 pb-6 border-b border-slate-100">
-                            <h1 className="text-3xl font-bold text-slate-900 mb-4">Preview: {previewArtifact.name}</h1>
-                            <p className="text-slate-500 text-lg leading-relaxed">
-                                This is a simulated preview of the file content. In a production environment, this would render PDF, PowerPoint, or Code content directly.
-                            </p>
-                        </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-900 truncate">{previewArtifact.name}</h3>
+                  <p className="text-xs text-slate-500 uppercase">{previewArtifact.kind}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                <a
+                  href={previewArtifact.uri}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                >
+                  <Download className="w-4 h-4 mr-2" /> Download
+                </a>
+                <button
+                  onClick={() => setPreviewArtifact(null)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
 
-                        <div className="space-y-6 text-slate-700 leading-relaxed">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900 mb-3">1. Executive Summary</h2>
-                                <p className="mb-4">
-                                    The proposed solution leverages <strong>OpenShift Virtualization</strong> to consolidate legacy infrastructure while providing a modern control plane for cloud-native applications. This approach reduces licensing costs by 40% and improves deployment velocity by 3x.
-                                </p>
-                                <p>
-                                    Key drivers for this initiative include the need for <span className="bg-yellow-100 px-1 rounded">operational efficiency</span>, rapid scalability, and a unified security posture across hybrid environments.
-                                </p>
-                            </div>
+            {/* Modal Body - Mock Preview */}
+            <div className="flex-1 overflow-y-auto p-8 bg-white">
+              <div className="max-w-3xl mx-auto">
+                <div className="mb-8 pb-6 border-b border-slate-100">
+                  <h1 className="text-3xl font-bold text-slate-900 mb-4">Preview: {previewArtifact.name}</h1>
+                  <p className="text-slate-500 text-lg leading-relaxed">
+                    This is a simulated preview of the file content. In a production environment, this would render PDF, PowerPoint, or Code content directly.
+                  </p>
+                </div>
 
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900 mb-3">2. Architecture Overview</h2>
-                                <p className="mb-4">
-                                    The architecture consists of three main zones:
-                                </p>
-                                <ul className="list-disc pl-5 space-y-2 mb-4">
-                                    <li><strong>Control Plane:</strong> Multi-master configuration distributed across availability zones.</li>
-                                    <li><strong>Compute Nodes:</strong> High-memory instances optimized for virtualization workloads.</li>
-                                    <li><strong>Storage Layer:</strong> ODF (OpenShift Data Foundation) providing block and object storage.</li>
-                                </ul>
-                            </div>
+                <div className="space-y-6 text-slate-700 leading-relaxed">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-3">1. Executive Summary</h2>
+                    <p className="mb-4">
+                      The proposed solution leverages <strong>OpenShift Virtualization</strong> to consolidate legacy infrastructure while providing a modern control plane for cloud-native applications. This approach reduces licensing costs by 40% and improves deployment velocity by 3x.
+                    </p>
+                    <p>
+                      Key drivers for this initiative include the need for <span className="bg-yellow-100 px-1 rounded">operational efficiency</span>, rapid scalability, and a unified security posture across hybrid environments.
+                    </p>
+                  </div>
 
-                            {previewArtifact.kind === 'code' && (
-                               <div className="bg-slate-900 text-slate-50 p-4 rounded-lg font-mono text-sm overflow-x-auto my-6">
-                                   <div className="flex items-center justify-between mb-2 border-b border-slate-700 pb-2 text-xs text-slate-400">
-                                       <span>main.tf</span>
-                                       <span>Terraform</span>
-                                   </div>
-                                   <pre>{`module "eks_cluster" {
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-3">2. Architecture Overview</h2>
+                    <p className="mb-4">
+                      The architecture consists of three main zones:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-2 mb-4">
+                      <li><strong>Control Plane:</strong> Multi-master configuration distributed across availability zones.</li>
+                      <li><strong>Compute Nodes:</strong> High-memory instances optimized for virtualization workloads.</li>
+                      <li><strong>Storage Layer:</strong> ODF (OpenShift Data Foundation) providing block and object storage.</li>
+                    </ul>
+                  </div>
+
+                  {previewArtifact.kind === 'code' && (
+                    <div className="bg-slate-900 text-slate-50 p-4 rounded-lg font-mono text-sm overflow-x-auto my-6">
+                      <div className="flex items-center justify-between mb-2 border-b border-slate-700 pb-2 text-xs text-slate-400">
+                        <span>main.tf</span>
+                        <span>Terraform</span>
+                      </div>
+                      <pre>{`module "eks_cluster" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "~> 19.0"
   cluster_name    = "production-cluster"
@@ -400,19 +400,19 @@ export const FindPage: React.FC = () => {
     }
   }
 }`}</pre>
-                               </div>
-                            )}
-
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900 mb-3">3. Next Steps</h2>
-                                <p>
-                                    Immediate action items include finalizing the sizing requirements for the production cluster and scheduling the initial migration window for non-critical workloads.
-                                </p>
-                            </div>
-                        </div>
                     </div>
+                  )}
+
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-3">3. Next Steps</h2>
+                    <p>
+                      Immediate action items include finalizing the sizing requirements for the production cluster and scheduling the initial migration window for non-critical workloads.
+                    </p>
+                  </div>
                 </div>
+              </div>
             </div>
+          </div>
         </div>
       )}
 
@@ -428,8 +428,8 @@ export const FindPage: React.FC = () => {
         <button
           onClick={() => setShowBriefcaseOnly(!showBriefcaseOnly)}
           className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors mr-2 my-2
-            ${showBriefcaseOnly 
-              ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200' 
+            ${showBriefcaseOnly
+              ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200'
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
         >
           <Briefcase className="w-4 h-4 mr-2" />
@@ -441,7 +441,7 @@ export const FindPage: React.FC = () => {
       </div>
 
       <div className="flex-1 flex min-h-0 relative">
-        
+
         {/* Main Results Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
           {/* Search & Toolbar */}
@@ -449,7 +449,7 @@ export const FindPage: React.FC = () => {
             <div className="flex items-center justify-between gap-4 mb-3">
               <div className="relative flex-1 max-w-2xl">
                 <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <input 
+                <input
                   type="text"
                   placeholder={showBriefcaseOnly ? "Search in Briefcase..." : `Search ${activeTab} assets...`}
                   className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-sm"
@@ -458,11 +458,11 @@ export const FindPage: React.FC = () => {
                   onKeyDown={handleKeyDown}
                 />
               </div>
-              
+
               <div className="flex items-center gap-3">
                 {/* Sort Dropdown */}
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={() => setShowSortMenu(!showSortMenu)}
                     className="flex items-center px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
@@ -496,14 +496,14 @@ export const FindPage: React.FC = () => {
 
                 {/* View Toggles */}
                 <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
-                  <button 
+                  <button
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
                     title="List View"
                   >
                     <ListIcon className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setViewMode('grid')}
                     className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
                     title="Grid View"
@@ -561,7 +561,7 @@ export const FindPage: React.FC = () => {
             {viewMode === 'grid' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {results.map(asset => (
-                  <div 
+                  <div
                     key={asset.id}
                     onClick={() => setSelectedAsset(asset)}
                     className={`group bg-white p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md flex flex-col relative
@@ -570,9 +570,9 @@ export const FindPage: React.FC = () => {
                     <button
                       onClick={(e) => toggleBriefcaseItem(e, asset.id)}
                       className={`absolute top-3 right-3 p-1.5 rounded-full z-10 transition-colors
-                         ${briefcase.has(asset.id) 
-                           ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' 
-                           : 'bg-transparent text-slate-300 hover:bg-slate-100 hover:text-slate-500'}`}
+                         ${briefcase.has(asset.id)
+                          ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                          : 'bg-transparent text-slate-300 hover:bg-slate-100 hover:text-slate-500'}`}
                       title={briefcase.has(asset.id) ? "Remove from Briefcase" : "Add to Briefcase"}
                     >
                       <Star className={`w-4 h-4 ${briefcase.has(asset.id) ? 'fill-current' : ''}`} />
@@ -588,14 +588,14 @@ export const FindPage: React.FC = () => {
                     </div>
                     <h3 className="font-bold text-slate-900 group-hover:text-blue-600 leading-snug mb-2 line-clamp-2">{asset.title}</h3>
                     <p className="text-slate-500 text-xs mb-3 line-clamp-3 flex-1">{asset.summary}</p>
-                    
+
                     {/* Related Technologies Chips */}
                     {asset.related_technologies && asset.related_technologies.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
                         {asset.related_technologies.slice(0, 3).map(tech => (
-                           <span key={tech} className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100">
-                             {tech}
-                           </span>
+                          <span key={tech} className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100">
+                            {tech}
+                          </span>
                         ))}
                         {asset.related_technologies.length > 3 && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-100">
@@ -606,7 +606,7 @@ export const FindPage: React.FC = () => {
                     )}
 
                     <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50 text-xs text-slate-400">
-                       <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {asset.author || 'Unknown'}</span>
+                      <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {asset.author || 'Unknown'}</span>
                       <span>{new Date(asset.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
@@ -630,21 +630,21 @@ export const FindPage: React.FC = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                       {results.map(asset => (
-                        <tr 
-                          key={asset.id} 
+                        <tr
+                          key={asset.id}
                           onClick={() => setSelectedAsset(asset)}
                           className={`cursor-pointer hover:bg-slate-50 ${selectedAsset?.id === asset.id ? 'bg-blue-50' : ''}`}
                         >
                           <td className="px-3 py-4 text-center">
                             <button
-                                onClick={(e) => toggleBriefcaseItem(e, asset.id)}
-                                className={`transition-colors
-                                  ${briefcase.has(asset.id) 
-                                    ? 'text-indigo-600' 
-                                    : 'text-slate-300 hover:text-slate-500'}`}
-                              >
-                                <Star className={`w-4 h-4 ${briefcase.has(asset.id) ? 'fill-current' : ''}`} />
-                              </button>
+                              onClick={(e) => toggleBriefcaseItem(e, asset.id)}
+                              className={`transition-colors
+                                  ${briefcase.has(asset.id)
+                                  ? 'text-indigo-600'
+                                  : 'text-slate-300 hover:text-slate-500'}`}
+                            >
+                              <Star className={`w-4 h-4 ${briefcase.has(asset.id) ? 'fill-current' : ''}`} />
+                            </button>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center">
@@ -655,9 +655,9 @@ export const FindPage: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                             <Badge color={asset.type === 'win_story' ? 'green' : asset.type === 'play' ? 'blue' : 'gray'}>
-                                {asset.type.replace('_', ' ').toUpperCase()}
-                              </Badge>
+                            <Badge color={asset.type === 'win_story' ? 'green' : asset.type === 'play' ? 'blue' : 'gray'}>
+                              {asset.type.replace('_', ' ').toUpperCase()}
+                            </Badge>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                             {asset.author}
@@ -693,8 +693,8 @@ export const FindPage: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <Badge color="blue">{selectedAsset.type}</Badge>
                 <div className="flex gap-1">
-                  <button 
-                    onClick={(e) => toggleBriefcaseItem(e, selectedAsset.id)} 
+                  <button
+                    onClick={(e) => toggleBriefcaseItem(e, selectedAsset.id)}
                     className={`p-2 rounded-full transition-colors ${briefcase.has(selectedAsset.id) ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:bg-slate-100'}`}
                     title="Toggle Briefcase"
                   >
@@ -707,7 +707,7 @@ export const FindPage: React.FC = () => {
               </div>
 
               <h1 className="text-xl font-bold text-slate-900 mb-2">{selectedAsset.title}</h1>
-              
+
               <div className="flex items-center gap-2 mb-6 text-sm text-slate-500">
                 <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {selectedAsset.author}</span>
                 <span>•</span>
@@ -716,22 +716,22 @@ export const FindPage: React.FC = () => {
 
               {/* Context-Aware Smart Action Button */}
               <div className="mb-6">
-                <Button 
-                  onClick={copySmartContent} 
-                  className="w-full flex items-center justify-center py-2.5 shadow-sm" 
+                <Button
+                  onClick={copySmartContent}
+                  className="w-full flex items-center justify-center py-2.5 shadow-sm"
                   variant="secondary"
                 >
-                   {selectedAsset.category === AssetCategory.Sales ? (
-                     <>
-                       <MessageSquarePlus className="w-4 h-4 mr-2" />
-                       Copy Email Blurb
-                     </>
-                   ) : (
-                     <>
-                       <Terminal className="w-4 h-4 mr-2" />
-                       {selectedAsset.type === AssetType.CodeRef ? 'Copy Clone Command' : 'Copy Reference'}
-                     </>
-                   )}
+                  {selectedAsset.category === AssetCategory.Sales ? (
+                    <>
+                      <MessageSquarePlus className="w-4 h-4 mr-2" />
+                      Copy Email Blurb
+                    </>
+                  ) : (
+                    <>
+                      <Terminal className="w-4 h-4 mr-2" />
+                      {selectedAsset.type === AssetType.CodeRef ? 'Copy Clone Command' : 'Copy Reference'}
+                    </>
+                  )}
                 </Button>
               </div>
 
@@ -758,7 +758,7 @@ export const FindPage: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  
+
                   {selectedAsset.related_technologies && selectedAsset.related_technologies.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-slate-200">
                       <span className="block text-slate-400 text-xs mb-2">Related Technologies</span>
@@ -780,15 +780,15 @@ export const FindPage: React.FC = () => {
 
                 {selectedAsset.metrics && (
                   <div>
-                     <h3 className="text-sm font-bold text-slate-900 mb-2">Key Metrics</h3>
-                     <div className="grid grid-cols-2 gap-3">
-                       {selectedAsset.metrics.map((m, i) => (
-                         <div key={i} className="bg-blue-50 p-3 rounded border border-blue-100">
-                           <div className="text-2xl font-bold text-blue-600">{m.value}</div>
-                           <div className="text-xs text-blue-800 font-medium">{m.name}</div>
-                         </div>
-                       ))}
-                     </div>
+                    <h3 className="text-sm font-bold text-slate-900 mb-2">Key Metrics</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedAsset.metrics.map((m, i) => (
+                        <div key={i} className="bg-blue-50 p-3 rounded border border-blue-100">
+                          <div className="text-2xl font-bold text-blue-600">{m.value}</div>
+                          <div className="text-xs text-blue-800 font-medium">{m.name}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -796,8 +796,8 @@ export const FindPage: React.FC = () => {
                   <h3 className="text-sm font-bold text-slate-900 mb-3">Artifacts & Files</h3>
                   <div className="space-y-2">
                     {selectedAsset.artifacts?.map((art, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         onClick={() => setPreviewArtifact(art)}
                         className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded hover:border-blue-400 hover:shadow-sm transition-all group cursor-pointer"
                       >
@@ -811,13 +811,13 @@ export const FindPage: React.FC = () => {
                           </div>
                         </div>
                         {/* Stop propagation on download button */}
-                        <a 
-                            href={art.uri} 
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                            title="Download"
+                        <a
+                          href={art.uri}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                          title="Download"
                         >
-                            <Download className="w-4 h-4" />
+                          <Download className="w-4 h-4" />
                         </a>
                       </div>
                     ))}
@@ -826,85 +826,85 @@ export const FindPage: React.FC = () => {
 
                 {/* Notes Section */}
                 <div className="pt-6 border-t border-slate-100">
-                   <div className="flex items-center justify-between mb-3">
-                     <h3 className="text-sm font-bold text-slate-900">My Notes</h3>
-                     <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => setIsPrivateNote(!isPrivateNote)}
-                          className={`text-xs flex items-center px-2 py-1 rounded transition-colors ${isPrivateNote ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}
-                        >
-                          {isPrivateNote ? <Lock className="w-3 h-3 mr-1" /> : <Globe className="w-3 h-3 mr-1" />}
-                          {isPrivateNote ? 'Private' : 'Public'}
-                        </button>
-                        <button 
-                          onClick={handleSaveNote}
-                          className="text-xs flex items-center px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
-                          disabled={savingNote}
-                        >
-                           <Save className="w-3 h-3 mr-1" />
-                           {savingNote ? 'Saving...' : 'Save'}
-                        </button>
-                     </div>
-                   </div>
-                   <textarea 
-                      className="w-full p-3 text-sm border border-slate-200 rounded-lg bg-amber-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
-                      placeholder="Add personal notes, reminders, or implementation details..."
-                      value={noteContent}
-                      onChange={(e) => setNoteContent(e.target.value)}
-                   />
-                   <div className="text-[10px] text-slate-400 mt-1 text-right">
-                     Last updated: {selectedAsset.notes?.updatedAt ? new Date(selectedAsset.notes.updatedAt).toLocaleDateString() : 'Never'}
-                   </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-slate-900">My Notes</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsPrivateNote(!isPrivateNote)}
+                        className={`text-xs flex items-center px-2 py-1 rounded transition-colors ${isPrivateNote ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}
+                      >
+                        {isPrivateNote ? <Lock className="w-3 h-3 mr-1" /> : <Globe className="w-3 h-3 mr-1" />}
+                        {isPrivateNote ? 'Private' : 'Public'}
+                      </button>
+                      <button
+                        onClick={handleSaveNote}
+                        className="text-xs flex items-center px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        disabled={savingNote}
+                      >
+                        <Save className="w-3 h-3 mr-1" />
+                        {savingNote ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    className="w-full p-3 text-sm border border-slate-200 rounded-lg bg-amber-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
+                    placeholder="Add personal notes, reminders, or implementation details..."
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                  />
+                  <div className="text-[10px] text-slate-400 mt-1 text-right">
+                    Last updated: {selectedAsset.notes?.updatedAt ? new Date(selectedAsset.notes.updatedAt).toLocaleDateString() : 'Never'}
+                  </div>
                 </div>
 
                 {/* Comments Section */}
                 <div className="pt-6 border-t border-slate-100">
-                   <h3 className="text-sm font-bold text-slate-900 mb-4">Comments ({comments.length})</h3>
-                   
-                   <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-1">
-                      {comments.map((comment) => (
-                        <div key={comment.id} className="flex gap-3">
-                           <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
-                              {comment.author.charAt(0)}
-                           </div>
-                           <div className="flex-1 bg-slate-50 p-3 rounded-lg rounded-tl-none border border-slate-100">
-                              <div className="flex justify-between items-baseline mb-1">
-                                 <span className="text-xs font-bold text-slate-700">{comment.author}</span>
-                                 <span className="text-[10px] text-slate-400">{comment.timestamp}</span>
-                              </div>
-                              <p className="text-sm text-slate-600">{comment.content}</p>
-                           </div>
-                        </div>
-                      ))}
-                      {comments.length === 0 && (
-                        <p className="text-center text-slate-400 text-xs py-2 italic">No comments yet.</p>
-                      )}
-                   </div>
+                  <h3 className="text-sm font-bold text-slate-900 mb-4">Comments ({comments.length})</h3>
 
-                   <div className="flex gap-2 items-end">
-                      <textarea 
-                        className="flex-1 p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[40px] resize-none"
-                        placeholder="Add a comment..."
-                        value={commentInput}
-                        onChange={(e) => setCommentInput(e.target.value)}
-                        onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment(); }}}
-                      />
-                      <button 
-                        onClick={handlePostComment}
-                        disabled={!commentInput.trim()}
-                        className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                         <Send className="w-4 h-4" />
-                      </button>
-                   </div>
+                  <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-1">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                          {comment.author.charAt(0)}
+                        </div>
+                        <div className="flex-1 bg-slate-50 p-3 rounded-lg rounded-tl-none border border-slate-100">
+                          <div className="flex justify-between items-baseline mb-1">
+                            <span className="text-xs font-bold text-slate-700">{comment.author}</span>
+                            <span className="text-[10px] text-slate-400">{comment.timestamp}</span>
+                          </div>
+                          <p className="text-sm text-slate-600">{comment.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {comments.length === 0 && (
+                      <p className="text-center text-slate-400 text-xs py-2 italic">No comments yet.</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 items-end">
+                    <textarea
+                      className="flex-1 p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[40px] resize-none"
+                      placeholder="Add a comment..."
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment(); } }}
+                    />
+                    <button
+                      onClick={handlePostComment}
+                      disabled={!commentInput.trim()}
+                      className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Governance Action */}
                 <div className="pt-6 border-t border-slate-100 mt-6">
-                   <button className="flex items-center text-xs text-slate-400 hover:text-red-600 transition-colors">
-                      <Flag className="w-3 h-3 mr-1" />
-                      Report issue or suggest edit
-                   </button>
+                  <button className="flex items-center text-xs text-slate-400 hover:text-red-600 transition-colors">
+                    <Flag className="w-3 h-3 mr-1" />
+                    Report issue or suggest edit
+                  </button>
                 </div>
               </div>
             </div>
