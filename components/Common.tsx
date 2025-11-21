@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Check, ChevronDown, Plus } from 'lucide-react';
 
@@ -82,7 +83,7 @@ export interface MultiSelectProps {
 export const MultiSelect: React.FC<MultiSelectProps> = ({
   label,
   value,
-  options,
+  options = [],
   onChange,
   creatable = false,
   multiple = false,
@@ -93,7 +94,8 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
   const [inputValue, setInputValue] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedValues = Array.isArray(value) ? value : value ? [value] : [];
+  // Safe array handling
+  const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -133,12 +135,13 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     }
   };
 
-  const filteredOptions = options.filter(opt =>
+  const safeOptions = Array.isArray(options) ? options : [];
+  const filteredOptions = safeOptions.filter(opt =>
     opt.toLowerCase().includes(inputValue.toLowerCase()) &&
     (multiple ? !selectedValues.includes(opt) : true)
   );
   
-  const showCreate = creatable && inputValue && !options.some(o => o.toLowerCase() === inputValue.toLowerCase());
+  const showCreate = creatable && inputValue && !safeOptions.some(o => o.toLowerCase() === inputValue.toLowerCase());
 
   return (
     <div className={`w-full relative ${className}`} ref={containerRef}>

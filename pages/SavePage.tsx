@@ -200,7 +200,8 @@ export const SavePage: React.FC = () => {
     setLoading(true);
     try {
       const validItems = bulkItems.filter(i => i.status === 'ready').map(i => i.metadata as AssetMetadata);
-      const results = await api.bulkSave(validItems);
+      const itemsWithId = validItems.map(i => ({...i, owners: ['current.user@example.com']}));
+      const results = await api.bulkSave(itemsWithId);
       setSavedAssets(results);
       setStep('success');
     } catch (err) {
@@ -211,7 +212,10 @@ export const SavePage: React.FC = () => {
     }
   };
 
-  const activeSchema = formData.type ? SCHEMAS[formData.type] : SCHEMAS[AssetType.Template];
+  // Robust schema lookup with fallback
+  const activeSchema = (formData.type && SCHEMAS[formData.type]) 
+      ? SCHEMAS[formData.type] 
+      : SCHEMAS[AssetType.Template] || SCHEMAS[Object.keys(SCHEMAS)[0] as AssetType];
 
   // Helper to render fields
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,9 +260,9 @@ export const SavePage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
+    <div className="max-w-5xl mx-auto p-8 animate-in fade-in duration-300">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Contribute Assets</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Import Assets</h1>
         <p className="text-slate-500 mt-2">Upload files or process incoming messages from Slack and Email.</p>
       </div>
 
@@ -270,7 +274,7 @@ export const SavePage: React.FC = () => {
                onClick={() => setActiveTab('upload')}
                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center ${activeTab === 'upload' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
              >
-               <Upload className="w-4 h-4 mr-2" /> Direct Upload
+               <Upload className="w-4 h-4 mr-2" /> File Upload
              </button>
              <button 
                onClick={() => setActiveTab('inbox')}
@@ -313,7 +317,6 @@ export const SavePage: React.FC = () => {
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
                         onChange={handleFileSelect} 
                         multiple 
-                        {...({ webkitdirectory: "" } as any)}
                        />
                     </label>
                   </>
@@ -381,7 +384,7 @@ export const SavePage: React.FC = () => {
 
       {/* --- SINGLE EDIT STEP (Used for both File Upload and Inbox Processing) --- */}
       {step === 'edit' && mode === 'single' && (
-        <div className="bg-white shadow-sm border border-slate-200 rounded-xl overflow-hidden max-w-3xl mx-auto">
+        <div className="bg-white shadow-sm border border-slate-200 rounded-xl overflow-hidden max-w-3xl mx-auto animate-in slide-in-from-bottom-4">
           <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
             <div className="flex items-center">
               <FileText className="w-5 h-5 text-blue-600 mr-2" />
@@ -394,8 +397,8 @@ export const SavePage: React.FC = () => {
           <form onSubmit={handleSingleSubmit} className="p-6 space-y-6">
             <div className="grid grid-cols-1 gap-6">
               <div className="grid grid-cols-2 gap-4">
-                <Select label="Asset Type" required options={Object.values(AssetType)} value={formData.type} onChange={e => handleFieldChange('type', e.target.value)} />
-                <Select label="Category" required options={Object.values(AssetCategory)} value={formData.category} onChange={e => handleFieldChange('category', e.target.value)} />
+                <Select label="Asset Type" required options={Object.values(AssetType)} value={formData.type || ''} onChange={e => handleFieldChange('type', e.target.value)} />
+                <Select label="Category" required options={Object.values(AssetCategory)} value={formData.category || ''} onChange={e => handleFieldChange('category', e.target.value)} />
               </div>
               {activeSchema.fields.filter(f => f.name !== 'category').map(field => renderField(field, formData, (val) => handleFieldChange(field.name, val)))}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -418,8 +421,7 @@ export const SavePage: React.FC = () => {
 
       {/* --- BULK EDIT STEP (Only for File/Folder Upload) --- */}
       {step === 'bulk-edit' && mode === 'bulk' && (
-        // Reusing previous Bulk Edit UI...
-        <div className="flex flex-col h-[calc(100vh-200px)]">
+        <div className="flex flex-col h-[calc(100vh-200px)] animate-in slide-in-from-bottom-4">
           {/* Bulk Controls */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -521,7 +523,7 @@ export const SavePage: React.FC = () => {
 
       {/* --- SUCCESS STEP --- */}
       {step === 'success' && (
-        <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-12 text-center">
+        <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-12 text-center animate-in zoom-in-95">
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8" />
           </div>
@@ -540,7 +542,7 @@ export const SavePage: React.FC = () => {
           </div>
 
           <div className="flex justify-center gap-3">
-            <Button onClick={reset}>Contribute More</Button>
+            <Button onClick={reset}>Import More</Button>
             <Button variant="outline" onClick={() => window.location.hash = '#/find'}>View in Search</Button>
           </div>
         </div>

@@ -1,3 +1,4 @@
+
 export enum AssetType {
   WinStory = 'win_story',
   Play = 'play',
@@ -26,6 +27,19 @@ export interface Metric {
   value: string;
 }
 
+export interface Note {
+  content: string;
+  isPrivate: boolean;
+  updatedAt: string;
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  content: string;
+  timestamp: string;
+}
+
 export interface Asset {
   id: string;
   title: string;
@@ -50,6 +64,9 @@ export interface Asset {
   artifacts?: Artifact[];
   last_verified?: string;
   metrics?: Metric[];
+  content?: string; // Markdown content body
+  notes?: Note;
+  comments?: Comment[];
 }
 
 export type AssetMetadata = Partial<Asset>;
@@ -76,4 +93,9 @@ export interface InboxItem {
   timestamp: string;
   content: string;
   suggestedMetadata: Partial<AssetMetadata> & { artifacts?: Artifact[] };
+}
+
+export interface NavSection {
+    label: string;
+    items: { label: string; href: string; icon: any }[];
 }

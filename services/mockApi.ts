@@ -1,7 +1,15 @@
-import { Asset, AssetMetadata, InboxItem, AssetType } from '../types';
+
+import { Asset, AssetMetadata, InboxItem, AssetType, Note, Comment } from '../types';
 import { MOCK_ASSETS } from '../constants';
 
 let assets = [...MOCK_ASSETS];
+
+// Initialize mock comments/notes if needed
+assets = assets.map(a => ({
+  ...a,
+  comments: a.comments || [],
+  notes: a.notes || { content: '', isPrivate: true, updatedAt: new Date().toISOString() }
+}));
 
 interface FacetItem {
   value: string;
@@ -25,25 +33,22 @@ export const api = {
 
   getFacets: async (): Promise<Record<string, FacetItem[]>> => {
     await new Promise(r => setTimeout(r, 100));
+    const counts: Record<string, Record<string, number>> = {
+        offering: {},
+        related_technologies: {},
+        tags: {}
+    };
+    
+    assets.forEach(a => {
+        if(a.offering) counts.offering[a.offering] = (counts.offering[a.offering] || 0) + 1;
+        a.related_technologies?.forEach(t => counts.related_technologies[t] = (counts.related_technologies[t] || 0) + 1);
+        a.tags?.forEach(t => counts.tags[t] = (counts.tags[t] || 0) + 1);
+    });
+
     return {
-      offering: [
-        {value: 'OpenShift', count: 10}, 
-        {value: 'Ansible', count: 5},
-        {value: 'RHOV', count: 3},
-        {value: 'Automation', count: 4},
-        {value: 'Cloud', count: 12}
-      ],
-      related_technologies: [
-        {value: 'Kubernetes', count: 8},
-        {value: 'Terraform', count: 6},
-        {value: 'AWS', count: 15},
-        {value: 'Azure', count: 4}
-      ],
-      tags: [
-        {value: 'Cloud', count: 12},
-        {value: 'Security', count: 5},
-        {value: 'Finance', count: 3}
-      ]
+      offering: Object.entries(counts.offering).map(([v, c]) => ({value: v, count: c})),
+      related_technologies: Object.entries(counts.related_technologies).map(([v, c]) => ({value: v, count: c})),
+      tags: Object.entries(counts.tags).map(([v, c]) => ({value: v, count: c}))
     };
   },
 
@@ -80,7 +85,9 @@ export const api = {
       id: Math.random().toString(36).substr(2, 9), 
       created_at: new Date().toISOString(),
       path: `uploads/${new Date().getFullYear()}/${data.title?.toLowerCase().replace(/ /g, '-')}.yaml`,
-      commit_sha: Math.random().toString(16).substr(2, 7)
+      commit_sha: Math.random().toString(16).substr(2, 7),
+      comments: [],
+      notes: { content: '', isPrivate: true, updatedAt: new Date().toISOString() }
     } as Asset;
     assets.unshift(newAsset);
     return newAsset;
@@ -93,7 +100,9 @@ export const api = {
        id: Math.random().toString(36).substr(2, 9), 
        created_at: new Date().toISOString(),
        path: `bulk/${i.title?.toLowerCase().replace(/ /g, '-')}.yaml`,
-       commit_sha: Math.random().toString(16).substr(2, 7)
+       commit_sha: Math.random().toString(16).substr(2, 7),
+       comments: [],
+       notes: { content: '', isPrivate: true, updatedAt: new Date().toISOString() }
      } as Asset));
      assets.unshift(...newAssets);
      return newAssets;
@@ -108,5 +117,32 @@ export const api = {
     if (asset) {
       asset.last_verified = new Date().toISOString().split('T')[0];
     }
-  }
+  },
+  
+  // Notes & Comments
+  updateAssetNote: async (id: string, note: Note) => {
+    const asset = assets.find(a => a.id === id);
+    if (asset) {
+      asset.notes = note;
+    }
+  },
+
+  addAssetComment: async (id: string, content: string): Promise<Comment> => {
+    const asset = assets.find(a => a.id === id);
+    const newComment: Comment = {
+      id: Math.random().toString(36).substr(2, 9),
+      author: 'John Doe',
+      content,
+      timestamp: 'Just now'
+    };
+    if (asset) {
+      if (!asset.comments) asset.comments = [];
+      asset.comments.push(newComment);
+    }
+    return newComment;
+  },
+
+  // Mock Schema Management
+  getSchemas: async () => { return []; }, // Implemented in UI currently via constants
+  updateSchema: async () => { return; }
 };

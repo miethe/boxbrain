@@ -5,10 +5,10 @@ import {
   Search as SearchIcon, Filter, X, Download, FileText, LayoutGrid, 
   List as ListIcon, Code, Presentation, ChevronDown, ChevronUp, 
   ArrowUpDown, Check, Calendar, User, ExternalLink, Briefcase, Star,
-  Copy, Flag, MessageSquarePlus, Terminal, Layers
+  Copy, Flag, MessageSquarePlus, Terminal, Layers, Lock, Globe, Send, Save
 } from 'lucide-react';
 import { api } from '../services/mockApi';
-import { Asset, AssetMetadata, AssetCategory, Artifact, AssetType } from '../types';
+import { Asset, AssetMetadata, AssetCategory, Artifact, AssetType, Note, Comment } from '../types';
 import { Badge, Button } from '../components/Common';
 
 interface FacetItem {
@@ -43,6 +43,13 @@ export const FindPage: React.FC = () => {
   const [briefcase, setBriefcase] = useState<Set<string>>(new Set());
   const [showBriefcaseOnly, setShowBriefcaseOnly] = useState(false);
 
+  // Notes & Comments State
+  const [noteContent, setNoteContent] = useState('');
+  const [isPrivateNote, setIsPrivateNote] = useState(true);
+  const [commentInput, setCommentInput] = useState('');
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [savingNote, setSavingNote] = useState(false);
+
   // Collapsible Sections State
   const [refineOpen, setRefineOpen] = useState(true);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -52,6 +59,15 @@ export const FindPage: React.FC = () => {
     const el = document.getElementById('sidebar-refine-portal');
     setPortalTarget(el);
   }, []);
+
+  // Sync Notes/Comments when Asset Selected
+  useEffect(() => {
+    if (selectedAsset) {
+      setNoteContent(selectedAsset.notes?.content || '');
+      setIsPrivateNote(selectedAsset.notes?.isPrivate ?? true);
+      setComments(selectedAsset.comments || []);
+    }
+  }, [selectedAsset]);
 
   const performSearch = async () => {
     setLoading(true);
@@ -143,6 +159,28 @@ export const FindPage: React.FC = () => {
       else next.add(id);
       return next;
     });
+  };
+
+  const handleSaveNote = async () => {
+    if (!selectedAsset) return;
+    setSavingNote(true);
+    const note: Note = {
+      content: noteContent,
+      isPrivate: isPrivateNote,
+      updatedAt: new Date().toISOString()
+    };
+    await api.updateAssetNote(selectedAsset.id, note);
+    setSavingNote(false);
+    // Update local result to reflect change if we re-open
+    const updated = { ...selectedAsset, notes: note };
+    setSelectedAsset(updated);
+  };
+
+  const handlePostComment = async () => {
+    if (!selectedAsset || !commentInput.trim()) return;
+    const newComment = await api.addAssetComment(selectedAsset.id, commentInput);
+    setComments([...comments, newComment]);
+    setCommentInput('');
   };
 
   // --------------------------------------------------------------------------
@@ -649,8 +687,8 @@ export const FindPage: React.FC = () => {
 
         {/* Preview Pane (Slide-over) */}
         {selectedAsset && (
-          <div className="w-[400px] bg-white border-l border-slate-200 flex-shrink-0 overflow-y-auto shadow-xl absolute right-0 inset-y-0 z-30 md:relative">
-            <div className="p-6">
+          <div className="w-[400px] bg-white border-l border-slate-200 flex-shrink-0 overflow-y-auto shadow-xl absolute right-0 inset-y-0 z-30 md:relative flex flex-col">
+            <div className="p-6 flex-1">
               {/* Action Bar for Selected Asset */}
               <div className="flex items-center justify-between mb-6">
                 <Badge color="blue">{selectedAsset.type}</Badge>
@@ -786,8 +824,83 @@ export const FindPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Governance Action */}
+                {/* Notes Section */}
                 <div className="pt-6 border-t border-slate-100">
+                   <div className="flex items-center justify-between mb-3">
+                     <h3 className="text-sm font-bold text-slate-900">My Notes</h3>
+                     <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => setIsPrivateNote(!isPrivateNote)}
+                          className={`text-xs flex items-center px-2 py-1 rounded transition-colors ${isPrivateNote ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}
+                        >
+                          {isPrivateNote ? <Lock className="w-3 h-3 mr-1" /> : <Globe className="w-3 h-3 mr-1" />}
+                          {isPrivateNote ? 'Private' : 'Public'}
+                        </button>
+                        <button 
+                          onClick={handleSaveNote}
+                          className="text-xs flex items-center px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
+                          disabled={savingNote}
+                        >
+                           <Save className="w-3 h-3 mr-1" />
+                           {savingNote ? 'Saving...' : 'Save'}
+                        </button>
+                     </div>
+                   </div>
+                   <textarea 
+                      className="w-full p-3 text-sm border border-slate-200 rounded-lg bg-amber-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
+                      placeholder="Add personal notes, reminders, or implementation details..."
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                   />
+                   <div className="text-[10px] text-slate-400 mt-1 text-right">
+                     Last updated: {selectedAsset.notes?.updatedAt ? new Date(selectedAsset.notes.updatedAt).toLocaleDateString() : 'Never'}
+                   </div>
+                </div>
+
+                {/* Comments Section */}
+                <div className="pt-6 border-t border-slate-100">
+                   <h3 className="text-sm font-bold text-slate-900 mb-4">Comments ({comments.length})</h3>
+                   
+                   <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-1">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3">
+                           <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                              {comment.author.charAt(0)}
+                           </div>
+                           <div className="flex-1 bg-slate-50 p-3 rounded-lg rounded-tl-none border border-slate-100">
+                              <div className="flex justify-between items-baseline mb-1">
+                                 <span className="text-xs font-bold text-slate-700">{comment.author}</span>
+                                 <span className="text-[10px] text-slate-400">{comment.timestamp}</span>
+                              </div>
+                              <p className="text-sm text-slate-600">{comment.content}</p>
+                           </div>
+                        </div>
+                      ))}
+                      {comments.length === 0 && (
+                        <p className="text-center text-slate-400 text-xs py-2 italic">No comments yet.</p>
+                      )}
+                   </div>
+
+                   <div className="flex gap-2 items-end">
+                      <textarea 
+                        className="flex-1 p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[40px] resize-none"
+                        placeholder="Add a comment..."
+                        value={commentInput}
+                        onChange={(e) => setCommentInput(e.target.value)}
+                        onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePostComment(); }}}
+                      />
+                      <button 
+                        onClick={handlePostComment}
+                        disabled={!commentInput.trim()}
+                        className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                         <Send className="w-4 h-4" />
+                      </button>
+                   </div>
+                </div>
+
+                {/* Governance Action */}
+                <div className="pt-6 border-t border-slate-100 mt-6">
                    <button className="flex items-center text-xs text-slate-400 hover:text-red-600 transition-colors">
                       <Flag className="w-3 h-3 mr-1" />
                       Report issue or suggest edit

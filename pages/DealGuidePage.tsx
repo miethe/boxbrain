@@ -67,7 +67,7 @@ export const DealGuidePage: React.FC = () => {
       // Match Tech (if any match)
       if (state.relatedTech.length > 0 && asset.related_technologies) {
         const hasMatch = state.relatedTech.some(t => 
-           asset.related_technologies.some(at => at.toLowerCase().includes(t.toLowerCase()))
+           asset.related_technologies!.some(at => at.toLowerCase().includes(t.toLowerCase()))
         );
         if (!hasMatch && asset.type === AssetType.CodeRef) return false; // Strict for code
       }
@@ -197,7 +197,7 @@ export const DealGuidePage: React.FC = () => {
                    <MultiSelect 
                       label="Primary Offering / Product" 
                       placeholder="Select offerings (e.g. OpenShift, Cloud...)" 
-                      options={options.offerings}
+                      options={options.offerings || []}
                       value={state.offering}
                       multiple={true}
                       creatable={false}
@@ -210,7 +210,7 @@ export const DealGuidePage: React.FC = () => {
                    <MultiSelect 
                       label="Related Technologies" 
                       placeholder="Select related tech (e.g. AWS, Terraform...)" 
-                      options={options.technologies}
+                      options={options.technologies || []}
                       value={state.relatedTech}
                       multiple={true}
                       creatable={false}

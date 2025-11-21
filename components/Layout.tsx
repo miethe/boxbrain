@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Search, PlusCircle, Compass, Settings, Shield, BarChart2, Database, ChevronDown, ChevronRight, Sliders } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Search, PlusCircle, Compass, Settings, Shield, BarChart2, Database, ChevronDown, ChevronRight, Sliders, Upload, PenTool } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,12 +15,23 @@ type NavItem = {
 };
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentRoute }) => {
-  const [adminExpanded, setAdminExpanded] = useState(true);
+  // Initialize state based on current route to keep sections open
+  const [adminExpanded, setAdminExpanded] = useState(false);
+  const [contributeExpanded, setContributeExpanded] = useState(false);
+
+  useEffect(() => {
+    if (currentRoute.startsWith('#/admin')) setAdminExpanded(true);
+    if (currentRoute.startsWith('#/save')) setContributeExpanded(true);
+  }, [currentRoute]);
 
   const navItems: NavItem[] = [
     { label: 'Find Assets', icon: Search, href: '#/find' },
-    { label: 'Contribute', icon: PlusCircle, href: '#/save' },
     { label: 'Deal Guide', icon: Compass, href: '#/deal-guide' },
+  ];
+
+  const contributeSubItems = [
+    { label: 'Import & Inbox', href: '#/save/import', icon: Upload },
+    { label: 'Author New', href: '#/save/create', icon: PenTool },
   ];
 
   const adminSubItems = [
@@ -30,6 +42,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentRoute }) => {
   ];
 
   const isAdminRoute = currentRoute.startsWith('#/admin');
+  const isContributeRoute = currentRoute.startsWith('#/save');
+
+  const renderSubItems = (items: typeof adminSubItems, currentPath: string) => (
+    <div className="mt-1 space-y-1 pl-3 animate-in slide-in-from-top-1 duration-200">
+      {items.map(sub => {
+        const subActive = currentPath === sub.href || (sub.href === '#/admin/analytics' && currentPath === '#/admin');
+        return (
+          <a
+            key={sub.href}
+            href={sub.href}
+            className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
+              ${subActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+          >
+            <sub.icon className="w-4 h-4 mr-3 opacity-75" />
+            {sub.label}
+          </a>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
@@ -43,7 +75,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentRoute }) => {
         
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           {navItems.map(item => {
-            const active = currentRoute === item.href || (item.href !== '#/find' && currentRoute.startsWith(item.href) && !item.href.startsWith('#/admin'));
+            const active = currentRoute === item.href;
             return (
               <a 
                 key={item.href}
@@ -57,7 +89,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentRoute }) => {
             );
           })}
 
-          {/* Nested Admin Section */}
+          {/* Contribute Section */}
+           <div className="pt-2 mt-2 border-t border-slate-800">
+             <button 
+               onClick={() => setContributeExpanded(!contributeExpanded)}
+               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                  ${isContributeRoute ? 'text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+             >
+                <div className="flex items-center">
+                   <PlusCircle className="w-5 h-5 mr-3" />
+                   Contribute
+                </div>
+                {contributeExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+             </button>
+
+             {contributeExpanded && renderSubItems(contributeSubItems, currentRoute)}
+          </div>
+
+          {/* Admin Section */}
           <div className="pt-2 mt-2 border-t border-slate-800">
              <button 
                onClick={() => setAdminExpanded(!adminExpanded)}
@@ -71,24 +120,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentRoute }) => {
                 {adminExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
              </button>
 
-             {adminExpanded && (
-               <div className="mt-1 space-y-1 pl-3">
-                  {adminSubItems.map(sub => {
-                     const subActive = currentRoute === sub.href || (sub.href === '#/admin/analytics' && currentRoute === '#/admin');
-                     return (
-                        <a
-                          key={sub.href}
-                          href={sub.href}
-                          className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                            ${subActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-                        >
-                           <sub.icon className="w-4 h-4 mr-3 opacity-75" />
-                           {sub.label}
-                        </a>
-                     );
-                  })}
-               </div>
-             )}
+             {adminExpanded && renderSubItems(adminSubItems, currentRoute)}
           </div>
         </nav>
 

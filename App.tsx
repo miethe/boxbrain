@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { FindPage } from './pages/FindPage';
 import { SavePage } from './pages/SavePage';
+import { CreatePage } from './pages/CreatePage';
 import { DealGuidePage } from './pages/DealGuidePage';
 import { AnalyticsPage } from './pages/admin/AnalyticsPage';
 import { GovernancePage } from './pages/admin/GovernancePage';
@@ -12,15 +14,26 @@ const App: React.FC = () => {
   const [route, setRoute] = useState(window.location.hash || '#/find');
 
   useEffect(() => {
-    const handleHashChange = () => setRoute(window.location.hash || '#/find');
+    const handleHashChange = () => {
+      let hash = window.location.hash || '#/find';
+      // Redirect base /save to /save/import
+      if (hash === '#/save') {
+        window.location.hash = '#/save/import';
+        return;
+      }
+      setRoute(hash);
+    }
     window.addEventListener('hashchange', handleHashChange);
+    // Initial check
+    handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   let Component = FindPage;
   
-  // Simple Router Logic
-  if (route.startsWith('#/save')) Component = SavePage;
+  // Route Matching
+  if (route.startsWith('#/save/import')) Component = SavePage;
+  else if (route.startsWith('#/save/create')) Component = CreatePage;
   else if (route.startsWith('#/deal-guide')) Component = DealGuidePage;
   
   // Admin Routes
@@ -31,7 +44,9 @@ const App: React.FC = () => {
   
   return (
     <Layout currentRoute={route}>
-      <Component />
+      {/* key={route} forces a complete unmount/remount when the route changes, 
+          cleaning up any side effects or portal targets from the previous page */}
+      <Component key={route} />
     </Layout>
   );
 };
