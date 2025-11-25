@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Search, PlusCircle, Compass, Settings, Shield, BarChart2, Database, ChevronDown, ChevronRight, Sliders, Upload, PenTool } from 'lucide-react';
+import { Search, PlusCircle, Compass, Settings, Shield, BarChart2, Database, ChevronDown, ChevronRight, Sliders, Upload, PenTool, Layers } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -41,6 +41,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     { label: 'Analytics', path: '/admin/analytics', icon: BarChart2 },
     { label: 'Metadata', path: '/admin/metadata', icon: Database },
     { label: 'Governance', path: '/admin/governance', icon: Shield },
+    { label: 'GTM Plays', path: '/admin/plays', icon: Layers },
     { label: 'Settings', path: '/admin/settings', icon: Sliders },
   ];
 

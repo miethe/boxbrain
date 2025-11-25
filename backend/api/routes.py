@@ -3,8 +3,11 @@ from typing import List, Optional
 from ..models import Asset, AssetMetadata, InboxItem, Facets, FacetItem
 import uuid
 from datetime import datetime
+from .endpoints import assets, gtm_plays
 
 router = APIRouter()
+router.include_router(assets.router, prefix="/assets", tags=["assets"])
+router.include_router(gtm_plays.router, prefix="/plays", tags=["plays"])
 
 # In-memory storage for MVP
 ASSETS: List[AssetMetadata] = []
@@ -33,24 +36,8 @@ def seed_data():
 
 seed_data()
 
-@router.get("/assets", response_model=List[AssetMetadata])
-async def get_assets(query: Optional[str] = None, category: Optional[str] = None):
-    results = ASSETS
-    if category:
-        results = [a for a in results if a.category == category]
-    if query:
-        q = query.lower()
-        results = [a for a in results if q in a.title.lower() or q in a.summary.lower()]
-    return results
-
-@router.post("/assets", response_model=AssetMetadata)
-async def create_asset(asset: AssetMetadata):
-    if not asset.id:
-        asset.id = str(uuid.uuid4())
-    asset.created_at = datetime.now().isoformat()
-    asset.updated_at = datetime.now().isoformat()
-    ASSETS.append(asset)
-    return asset
+# Legacy in-memory assets endpoints removed in favor of /api/assets router
+# See endpoints/assets.py
 
 @router.get("/facets", response_model=Facets)
 async def get_facets():

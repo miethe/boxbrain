@@ -23,6 +23,11 @@ export const CreatePage: React.FC = () => {
 
     const [options, setOptions] = useState<Record<string, string[]>>({});
 
+    // GTM Play State
+    const [availablePlays, setAvailablePlays] = useState<any[]>([]);
+    const [currentPlay, setCurrentPlay] = useState('');
+    const [currentPhase, setCurrentPhase] = useState('');
+
     // Helper to auto-select type based on URL param (Quick Add)
     useEffect(() => {
         const typeParam = searchParams.get('type');
@@ -42,6 +47,8 @@ export const CreatePage: React.FC = () => {
                 tags: facets.tags?.map(f => f.value) || [],
             });
         });
+
+        api.getPlays().then(plays => setAvailablePlays(plays));
     }, [searchParams]);
 
     const handleCategorySelect = (cat: AssetCategory) => {
@@ -227,10 +234,84 @@ export const CreatePage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* GTM Plays Section */}
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100">
+                                    2. GTM Plays (Optional)
+                                </h3>
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-4">
+                                    <div className="flex gap-4 items-end">
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Select Play</label>
+                                            <Select
+                                                options={availablePlays.map(p => p.title)}
+                                                value={currentPlay}
+                                                onChange={(e) => setCurrentPlay(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Phase</label>
+                                            <Select
+                                                options={['Awareness', 'Consideration', 'Decision', 'Delivery']}
+                                                value={currentPhase}
+                                                onChange={(e) => setCurrentPhase(e.target.value)}
+                                            />
+                                        </div>
+                                        <Button
+                                            onClick={() => {
+                                                if (currentPlay && currentPhase) {
+                                                    const play = availablePlays.find(p => p.title === currentPlay);
+                                                    if (play) {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            gtm_plays: [
+                                                                ...(prev.gtm_plays || []),
+                                                                { play_id: play.id, play_title: play.title, phase: currentPhase }
+                                                            ]
+                                                        }));
+                                                        setCurrentPlay('');
+                                                        setCurrentPhase('');
+                                                    }
+                                                }
+                                            }}
+                                            disabled={!currentPlay || !currentPhase}
+                                        >
+                                            Add
+                                        </Button>
+                                    </div>
+
+                                    {/* Selected Plays List */}
+                                    {formData.gtm_plays && formData.gtm_plays.length > 0 && (
+                                        <div className="space-y-2 mt-4">
+                                            {formData.gtm_plays.map((assoc, idx) => (
+                                                <div key={idx} className="flex items-center justify-between bg-white p-3 rounded border border-slate-200">
+                                                    <div>
+                                                        <span className="font-medium text-slate-900">{assoc.play_title}</span>
+                                                        <span className="mx-2 text-slate-300">|</span>
+                                                        <span className="text-sm text-slate-500">{assoc.phase}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                gtm_plays: prev.gtm_plays?.filter((_, i) => i !== idx)
+                                                            }));
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Content Section */}
                             <div>
                                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100">
-                                    2. Content Body
+                                    3. Content Body
                                 </h3>
                                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-2">
                                     <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200 px-2">

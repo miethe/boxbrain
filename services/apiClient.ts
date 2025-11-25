@@ -13,13 +13,35 @@ export const api = {
         return res.json();
     },
 
-    save: async (asset: AssetMetadata): Promise<AssetMetadata> => {
+    save: async (asset: AssetMetadata, file?: File | Blob): Promise<AssetMetadata> => {
+        const formData = new FormData();
+
+        // Handle file: explicit file > content blob > error
+        if (file) {
+            formData.append('file', file);
+        } else if (asset.content) {
+            const blob = new Blob([asset.content], { type: 'text/markdown' });
+            formData.append('file', blob, 'content.md');
+        } else {
+            // If no file and no content, we can't create an asset in the current backend model
+            // But maybe we are just updating metadata?
+            // For now, let's assume we need a file for creation.
+            // If this is an update, the backend might handle it differently (PUT vs POST).
+            // The current POST endpoint requires a file.
+            throw new Error('File or content is required to create an asset');
+        }
+
+        formData.append('metadata_json', JSON.stringify(asset));
+
         const res = await fetch(`${API_BASE}/assets`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(asset),
+            // Content-Type header must be undefined for FormData to set boundary
+            body: formData,
         });
-        if (!res.ok) throw new Error('Failed to save asset');
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`Failed to save asset: ${err}`);
+        }
         return res.json();
     },
 
@@ -87,5 +109,37 @@ export const api = {
         // Mock for now
         console.log('Verified asset', id);
         return Promise.resolve();
+    },
+
+    // GTM Plays
+    getPlays: async (): Promise<any[]> => {
+        const res = await fetch(`${API_BASE}/plays`);
+        if (!res.ok) throw new Error('Failed to fetch plays');
+        return res.json();
+    },
+
+    createPlay: async (play: any): Promise<any> => {
+        const res = await fetch(`${API_BASE}/plays`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(play),
+        });
+        if (!res.ok) throw new Error('Failed to create play');
+        return res.json();
+    },
+
+    matchPlays: async (filters: { offering?: string[], industry?: string, region?: string }): Promise<any[]> => {
+        const params = new URLSearchParams();
+        if (filters.industry) params.append('industry', filters.industry);
+        if (filters.region) params.append('region', filters.region);
+        if (filters.offering) {
+            filters.offering.forEach(o => params.append('offering', o));
+        }
+
+        const res = await fetch(`${API_BASE}/plays/match?${params.toString()}`, {
+            method: 'POST', // Changed to POST to match backend implementation if needed, or keep GET if params are enough. Backend defined as POST /match
+        });
+        if (!res.ok) throw new Error('Failed to match plays');
+        return res.json();
     }
 };

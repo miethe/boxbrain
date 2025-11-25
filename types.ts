@@ -67,6 +67,25 @@ export interface Asset {
   content?: string; // Markdown content body
   notes?: Note;
   comments?: Comment[];
+  gtm_plays?: AssetGTMPlayAssociation[];
+  url?: string;
+  mime_type?: string;
+}
+
+export interface AssetGTMPlayAssociation {
+  play_id: number;
+  play_title: string;
+  phase: string;
+}
+
+export interface GTMPlay {
+  id: number;
+  title: string;
+  description?: string;
+  offering?: string;
+  industry?: string;
+  region?: string;
+  assets?: Asset[];
 }
 
 export type AssetMetadata = Partial<Asset>;

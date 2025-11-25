@@ -37,20 +37,25 @@ class Metric(BaseModel):
     name: str
     value: str
 
+class AssetGTMPlayAssociation(BaseModel):
+    play_id: int
+    play_title: str
+    phase: str
+
 class AssetMetadata(BaseModel):
     id: Optional[str] = None
     title: str
     type: AssetType
     category: AssetCategory
     summary: str
-    author: str
-    created_at: str
-    updated_at: str
-    last_verified: str
+    author: Optional[str] = "Unknown"
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_verified: Optional[str] = None
     confidentiality: Confidentiality
-    owners: List[str]
-    tags: List[str]
-    related_technologies: List[str]
+    owners: List[str] = []
+    tags: List[str] = []
+    related_technologies: List[str] = []
     region: Optional[str] = None
     stage: Optional[str] = None
     metrics: Optional[List[Metric]] = None
@@ -58,6 +63,10 @@ class AssetMetadata(BaseModel):
     notes: Optional[Note] = None
     comments: Optional[List[Comment]] = None
     content: Optional[str] = None  # For raw content if needed
+    url: Optional[str] = None
+    mime_type: Optional[str] = None
+    gtm_plays: Optional[List[AssetGTMPlayAssociation]] = []
+
 
 class FacetItem(BaseModel):
     value: str
@@ -76,4 +85,29 @@ class InboxItem(BaseModel):
     timestamp: str
     suggestedMetadata: AssetMetadata
 
+
+
+
+class GTMPlay(BaseModel):
+    id: Optional[int] = None
+    title: str
+    description: Optional[str] = None
+    offering: Optional[str] = None
+    industry: Optional[str] = None
+    region: Optional[str] = None
+    assets: List[AssetMetadata] = [] # For returning full asset details
+
+class GTMPlayCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    offering: Optional[str] = None
+    industry: Optional[str] = None
+    region: Optional[str] = None
+
+class AssetGTMPlayLink(BaseModel):
+    asset_id: str
+    play_id: int
+    phase: str
+
 Asset = AssetMetadata
+

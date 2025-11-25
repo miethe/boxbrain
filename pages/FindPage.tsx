@@ -10,6 +10,7 @@ import {
 import { api } from '../services/apiClient';
 import { Asset, AssetMetadata, AssetCategory, Artifact, AssetType, Note, Comment } from '../types';
 import { Badge, Button } from '../components/Common';
+import FilePreview from '../components/FilePreview';
 
 interface FacetItem {
   value: string;
@@ -27,7 +28,7 @@ export const FindPage: React.FC = () => {
   const [filters, setFilters] = useState<Partial<Record<keyof AssetMetadata, string>>>({});
 
   // Preview State
-  const [previewArtifact, setPreviewArtifact] = useState<Artifact | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ url: string; mimeType?: string; filename: string } | null>(null);
 
   // New Filters
   const [dateFilter, setDateFilter] = useState<string>('');
@@ -307,8 +308,8 @@ export const FindPage: React.FC = () => {
   return (
     <div className="flex flex-col h-full relative">
       {/* File Preview Modal */}
-      {previewArtifact && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6" onClick={() => setPreviewArtifact(null)}>
+      {previewFile && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6" onClick={() => setPreviewFile(null)}>
           <div
             className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
@@ -320,14 +321,13 @@ export const FindPage: React.FC = () => {
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-bold text-slate-900 truncate">{previewArtifact.name}</h3>
-                  <p className="text-xs text-slate-500 uppercase">{previewArtifact.kind}</p>
+                  <h3 className="font-bold text-slate-900 truncate">{previewFile.filename}</h3>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                 <a
-                  href={previewArtifact.uri}
-                  download
+                  href={previewFile.url}
+                  download={previewFile.filename}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
@@ -335,7 +335,7 @@ export const FindPage: React.FC = () => {
                   <Download className="w-4 h-4 mr-2" /> Download
                 </a>
                 <button
-                  onClick={() => setPreviewArtifact(null)}
+                  onClick={() => setPreviewFile(null)}
                   className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -343,74 +343,9 @@ export const FindPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Body - Mock Preview */}
-            <div className="flex-1 overflow-y-auto p-8 bg-white">
-              <div className="max-w-3xl mx-auto">
-                <div className="mb-8 pb-6 border-b border-slate-100">
-                  <h1 className="text-3xl font-bold text-slate-900 mb-4">Preview: {previewArtifact.name}</h1>
-                  <p className="text-slate-500 text-lg leading-relaxed">
-                    This is a simulated preview of the file content. In a production environment, this would render PDF, PowerPoint, or Code content directly.
-                  </p>
-                </div>
-
-                <div className="space-y-6 text-slate-700 leading-relaxed">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-3">1. Executive Summary</h2>
-                    <p className="mb-4">
-                      The proposed solution leverages <strong>OpenShift Virtualization</strong> to consolidate legacy infrastructure while providing a modern control plane for cloud-native applications. This approach reduces licensing costs by 40% and improves deployment velocity by 3x.
-                    </p>
-                    <p>
-                      Key drivers for this initiative include the need for <span className="bg-yellow-100 px-1 rounded">operational efficiency</span>, rapid scalability, and a unified security posture across hybrid environments.
-                    </p>
-                  </div>
-
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-3">2. Architecture Overview</h2>
-                    <p className="mb-4">
-                      The architecture consists of three main zones:
-                    </p>
-                    <ul className="list-disc pl-5 space-y-2 mb-4">
-                      <li><strong>Control Plane:</strong> Multi-master configuration distributed across availability zones.</li>
-                      <li><strong>Compute Nodes:</strong> High-memory instances optimized for virtualization workloads.</li>
-                      <li><strong>Storage Layer:</strong> ODF (OpenShift Data Foundation) providing block and object storage.</li>
-                    </ul>
-                  </div>
-
-                  {previewArtifact.kind === 'code' && (
-                    <div className="bg-slate-900 text-slate-50 p-4 rounded-lg font-mono text-sm overflow-x-auto my-6">
-                      <div className="flex items-center justify-between mb-2 border-b border-slate-700 pb-2 text-xs text-slate-400">
-                        <span>main.tf</span>
-                        <span>Terraform</span>
-                      </div>
-                      <pre>{`module "eks_cluster" {
-  source          = "terraform-aws-modules/eks/aws"
-  version         = "~> 19.0"
-  cluster_name    = "production-cluster"
-  cluster_version = "1.27"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
-  eks_managed_node_groups = {
-    general = {
-      desired_size = 3
-      min_size     = 1
-      max_size     = 5
-      instance_types = ["m5.large"]
-    }
-  }
-}`}</pre>
-                    </div>
-                  )}
-
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-3">3. Next Steps</h2>
-                    <p>
-                      Immediate action items include finalizing the sizing requirements for the production cluster and scheduling the initial migration window for non-critical workloads.
-                    </p>
-                  </div>
-                </div>
-              </div>
+            {/* Modal Body - File Preview */}
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-100 flex items-center justify-center">
+              <FilePreview url={previewFile.url} mimeType={previewFile.mimeType} filename={previewFile.filename} />
             </div>
           </div>
         </div>
@@ -795,6 +730,29 @@ export const FindPage: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 mb-3">Artifacts & Files</h3>
                   <div className="space-y-2">
+                    {/* Main File */}
+                    {selectedAsset.url && (
+                      <div
+                        className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer group"
+                        onClick={() => setPreviewFile({
+                          url: selectedAsset.url!,
+                          mimeType: selectedAsset.mime_type,
+                          filename: selectedAsset.title // Using title as filename for now
+                        })}
+                      >
+                        <div className="flex items-center min-w-0">
+                          <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded flex items-center justify-center mr-3 group-hover:bg-blue-100 transition-colors">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-slate-900 truncate">Main Asset File</div>
+                            <div className="text-xs text-slate-500">Click to preview</div>
+                          </div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+                      </div>
+                    )}
+
                     {selectedAsset.artifacts?.map((art, i) => (
                       <div
                         key={i}

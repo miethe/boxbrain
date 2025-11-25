@@ -52,58 +52,61 @@ export const DealGuidePage: React.FC = () => {
 
   const generateRecommendations = async () => {
     setLoading(true);
-    const allAssets = await api.search('', {});
 
-    // Filter logic
-    const filtered = allAssets.filter(asset => {
-      // Match Offering (if any selected offering matches asset's offering)
-      if (state.offering.length > 0 && asset.offering) {
-        const hasMatch = state.offering.some(sel =>
-          asset.offering?.toLowerCase().includes(sel.toLowerCase())
-        );
-        if (!hasMatch) return false;
-      }
+    try {
+      // 1. Fetch matching plays from backend
+      const matchedPlays = await api.matchPlays({
+        offering: state.offering,
+        industry: 'X-SECTOR', // Default or add to wizard if needed
+        region: 'GLOBAL' // Default or add to wizard if needed
+      });
 
-      // Match Tech (if any match)
-      if (state.relatedTech.length > 0 && asset.related_technologies) {
-        const hasMatch = state.relatedTech.some(t =>
-          asset.related_technologies!.some(at => at.toLowerCase().includes(t.toLowerCase()))
-        );
-        if (!hasMatch && asset.type === AssetType.CodeRef) return false; // Strict for code
-      }
+      // 2. Bucket assets from matched plays
+      const buckets: Record<string, Asset[]> = {
+        discovery: [],
+        solutioning: [],
+        proposal: [],
+        closing: []
+      };
 
-      return true;
-    });
+      // Helper to map phase string to bucket key
+      const mapPhaseToBucket = (phase: string) => {
+        const p = phase.toLowerCase();
+        if (p.includes('awareness')) return 'discovery';
+        if (p.includes('consideration')) return 'solutioning';
+        if (p.includes('decision')) return 'proposal';
+        if (p.includes('delivery')) return 'closing';
+        return 'discovery'; // Default
+      };
 
-    // Bucket logic
-    const buckets: Record<string, Asset[]> = {
-      discovery: [],
-      solutioning: [],
-      proposal: [],
-      closing: []
-    };
+      matchedPlays.forEach(play => {
+        if (play.assets) {
+          play.assets.forEach((asset: Asset) => {
+            // Asset from backend has 'stage' field overloaded with phase from association
+            // See backend/api/endpoints/gtm_plays.py list_plays/match_plays
+            const bucketKey = mapPhaseToBucket(asset.stage || '');
 
-    filtered.forEach(asset => {
-      // Map asset types to sales lifecycle stages
-      if (asset.type === AssetType.WinStory) {
-        buckets.discovery.push(asset); // Proof points for early stage
-      } else if (asset.type === AssetType.Play) {
-        buckets.solutioning.push(asset); // How-to for middle stage
-      } else if (asset.type === AssetType.CodeRef) {
-        buckets.solutioning.push(asset); // Technical proof
-        buckets.closing.push(asset); // Delivery prep
-      } else if (asset.type === AssetType.Template) {
-        if (asset.title.toLowerCase().includes('pricing') || asset.title.toLowerCase().includes('sow')) {
-          buckets.proposal.push(asset);
-        } else {
-          buckets.discovery.push(asset); // One-pagers
+            // Avoid duplicates if multiple plays have same asset
+            if (!buckets[bucketKey].find(a => a.id === asset.id)) {
+              buckets[bucketKey].push(asset);
+            }
+          });
         }
-      }
-    });
+      });
 
-    setRecommendations(buckets);
-    setLoading(false);
-    nextStep();
+      // 3. Fallback: If no plays matched, or buckets empty, maybe do a broad search?
+      // For now, let's just show what we found.
+      setRecommendations(buckets);
+      nextStep();
+
+    } catch (e) {
+      console.error("Failed to generate recommendations", e);
+      // Fallback to empty or error state
+      setRecommendations({});
+      nextStep();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const restart = () => {
@@ -295,7 +298,7 @@ export const DealGuidePage: React.FC = () => {
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${asset.type === 'win_story' ? 'bg-green-100 text-green-700' :
-                                      asset.type === 'code_ref' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'
+                                    asset.type === 'code_ref' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'
                                     }`}>
                                     {asset.type.replace('_', ' ')}
                                   </span>

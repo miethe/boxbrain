@@ -182,7 +182,7 @@ export const SavePage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = await api.save(formData as AssetMetadata);
+      const result = await api.save(formData as AssetMetadata, file || undefined);
 
       // If this came from inbox, remove it from inbox list
       if (processingInboxId) {
@@ -201,9 +201,12 @@ export const SavePage: React.FC = () => {
   const handleBulkSubmit = async () => {
     setLoading(true);
     try {
-      const validItems = bulkItems.filter(i => i.status === 'ready').map(i => i.metadata as AssetMetadata);
-      const itemsWithId = validItems.map(i => ({ ...i, owners: ['current.user@example.com'] }));
-      const results = await api.bulkSave(itemsWithId);
+      const validItems = bulkItems.filter(i => i.status === 'ready');
+      const results = [];
+      for (const item of validItems) {
+        const metadata = { ...item.metadata, owners: ['current.user@example.com'] } as AssetMetadata;
+        results.push(await api.save(metadata, item.file));
+      }
       setSavedAssets(results);
       setStep('success');
     } catch (err) {
