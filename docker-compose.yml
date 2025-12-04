@@ -1,14 +1,14 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - /Users/miethe/dev/homelab/development/boxbrain/pg:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=boxbrain
     ports:
-      - "5432:5432"
+      - "5436:5432"
 
   backend:
     build:
@@ -26,17 +26,15 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./frontend
+      dockerfile: ../Dockerfile
     volumes:
-      - .:/app
+      - ./frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000
+      - API_TARGET=http://backend:8000
     ports:
       - "3000:3000"
     depends_on:
       - backend
-
-volumes:
-  postgres_data:

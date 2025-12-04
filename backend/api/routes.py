@@ -3,11 +3,12 @@ from typing import List, Optional
 from ..models import Asset, AssetMetadata, InboxItem, Facets, FacetItem
 import uuid
 from datetime import datetime
-from .endpoints import assets, gtm_plays
+from .endpoints import assets, gtm_plays, metadata
 
 router = APIRouter()
 router.include_router(assets.router, prefix="/assets", tags=["assets"])
 router.include_router(gtm_plays.router, prefix="/plays", tags=["plays"])
+router.include_router(metadata.router, prefix="/metadata", tags=["metadata"])
 
 # In-memory storage for MVP
 ASSETS: List[AssetMetadata] = []

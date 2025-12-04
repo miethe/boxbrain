@@ -29,7 +29,8 @@ async def test_gtm_plays():
             description="Move to the cloud",
             offering="Cloud",
             industry="X-SECTOR",
-            region="GLOBAL"
+            region="GLOBAL",
+            sales_stage="Solutioning"
         )
         db.add(play)
         await db.commit()
@@ -69,7 +70,9 @@ async def test_gtm_plays():
         assoc = AssetGTMPlayAssociation(
             asset_id=asset_id,
             play_id=play_id,
-            phase="Decision"
+            phase="Decision",
+            purpose="Core Guide",
+            collection_id=None
         )
         db.add(assoc)
         await db.commit()
@@ -90,23 +93,35 @@ async def test_gtm_plays():
         assert len(play_fetched.asset_associations) == 1
         assert play_fetched.asset_associations[0].asset_id == asset_id
         assert play_fetched.asset_associations[0].phase == "Decision"
+        assert play_fetched.asset_associations[0].purpose == "Core Guide"
         assert play_fetched.asset_associations[0].asset.metadata_entry.title == "Migration Guide"
         print("   Association verified successfully.")
         
-        print("5. Testing Fuzzy Match Logic...")
+        print("5. Testing Match Logic...")
         # Simulate match logic
         offering_filter = ["Cloud"]
+        stage_filter = "Solutioning"
         
-        # Simple match check
-        play_offerings = [o.strip().lower() for o in play_fetched.offering.split(',')]
-        match = False
-        for off in offering_filter:
-            if any(off.lower() in po for po in play_offerings):
-                match = True
-                break
+        score = 0
+        total_criteria = 0
         
-        assert match == True
-        print("   Fuzzy match logic verified.")
+        # Offering
+        if offering_filter:
+            total_criteria += 3
+            play_offerings = [o.strip().lower() for o in play_fetched.offering.split(',')]
+            if any(off.lower() in po for po in play_offerings for off in offering_filter):
+                score += 3
+        
+        # Stage
+        if stage_filter:
+            total_criteria += 1
+            if stage_filter.lower() in play_fetched.sales_stage.lower():
+                score += 1
+                
+        final_score = int((score / total_criteria) * 100)
+        
+        assert final_score == 100
+        print(f"   Match logic verified. Score: {final_score}%")
 
     # Cleanup
     if os.path.exists("test_asset.txt"):

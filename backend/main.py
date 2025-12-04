@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import routes
+from .api import routes, v2_endpoints
 from .database import engine, Base
 from . import models_db  # Import models to register them with Base
 from fastapi.staticfiles import StaticFiles
@@ -31,6 +31,7 @@ app.add_middleware(
 
 # Mount API routes
 app.include_router(routes.router, prefix="/api")
+app.include_router(v2_endpoints.router)
 
 # Ensure assets directory exists
 ASSETS_DIR = Path("assets")

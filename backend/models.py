@@ -38,7 +38,7 @@ class Metric(BaseModel):
     value: str
 
 class AssetGTMPlayAssociation(BaseModel):
-    play_id: int
+    play_id: str
     play_title: str
     phase: str
 
@@ -58,6 +58,8 @@ class AssetMetadata(BaseModel):
     related_technologies: List[str] = []
     region: Optional[str] = None
     stage: Optional[str] = None
+    purpose: Optional[str] = None # Contextual for Play
+    collection_id: Optional[int] = None # Contextual for Play
     metrics: Optional[List[Metric]] = None
     artifacts: Optional[List[Artifact]] = None
     notes: Optional[Note] = None
@@ -95,6 +97,8 @@ class GTMPlay(BaseModel):
     offering: Optional[str] = None
     industry: Optional[str] = None
     region: Optional[str] = None
+    sales_stage: Optional[str] = None
+    match_score: Optional[int] = None # For matching results
     assets: List[AssetMetadata] = [] # For returning full asset details
 
 class GTMPlayCreate(BaseModel):
@@ -103,11 +107,14 @@ class GTMPlayCreate(BaseModel):
     offering: Optional[str] = None
     industry: Optional[str] = None
     region: Optional[str] = None
+    sales_stage: Optional[str] = None
 
 class AssetGTMPlayLink(BaseModel):
     asset_id: str
     play_id: int
     phase: str
+    purpose: Optional[str] = None
+    collection_id: Optional[int] = None
 
 Asset = AssetMetadata
 

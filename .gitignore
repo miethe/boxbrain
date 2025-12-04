@@ -25,3 +25,4 @@ dist-ssr
 **.pyc
 **/venv
 **/__pycache__
+assets/
