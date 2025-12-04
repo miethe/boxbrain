@@ -8,7 +8,8 @@ const API_BASE = '/api/v2';
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, options);
   if (!response.ok) {
-    throw new Error(`API Error: ${response.statusText}`);
+    const errorText = await response.text().catch(() => response.statusText);
+    throw new Error(`API Error ${response.status}: ${errorText || response.statusText}`);
   }
   return response.json();
 }
@@ -241,4 +242,34 @@ export const getRelatedAssets = (assetId: string): Asset[] => {
 
 export const getAssetLinkedPlays = (assetId: string): Play[] => {
   return [];
+};
+
+// --- Governance / Admin Mocks ---
+
+export const getStaleAssets = async (): Promise<Asset[]> => {
+  // Mock data for now
+  return [
+    {
+      id: 'stale-1',
+      title: 'Q1 Sales Deck 2023',
+      kind: 'deck',
+      offering: 'Cloud',
+      technologies: ['Kubernetes'],
+      stage_scope: ['Discovery'],
+      sector: 'Tech',
+      geo: 'Americas',
+      tags: ['legacy'],
+      uri: 'mock://stale-1',
+      description: 'Old sales deck',
+      owners: ['Alice'],
+      last_verified: '2023-01-15',
+      created_at: '2023-01-01T00:00:00Z',
+      updated_at: '2023-01-01T00:00:00Z'
+    } as any
+  ];
+};
+
+export const verifyAsset = async (id: string): Promise<void> => {
+  console.log(`Verified asset ${id}`);
+  return Promise.resolve();
 };
