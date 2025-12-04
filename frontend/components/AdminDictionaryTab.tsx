@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Layers, Cpu } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Layers, Check } from 'lucide-react';
 import { addDictionaryOption, updateDictionaryOption, deleteDictionaryOption, mapOfferingTechnology } from '../services/dataService';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
+import { Checkbox } from './ui/checkbox';
+import { Button } from './ui/button';
+import { cn } from '../lib/utils';
 
 interface AdminDictionaryTabProps {
     type: string;
@@ -8,28 +13,53 @@ interface AdminDictionaryTabProps {
     onRefresh: () => void;
     mapping?: Record<string, string[]>; // For Offering -> Tech mapping
     availableTechs?: string[]; // For Offering -> Tech mapping
+    availableOfferings?: string[]; // For Tech -> Offering mapping
     categories?: Record<string, string>; // For Tech -> Category mapping
 }
 
-export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, items, onRefresh, mapping, availableTechs, categories }) => {
+export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, items, onRefresh, mapping, availableTechs, availableOfferings, categories }) => {
     const [newItem, setNewItem] = useState('');
     const [editingItem, setEditingItem] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
     const [editCategory, setEditCategory] = useState('');
     const [newCategory, setNewCategory] = useState('');
-    const [expandedOffering, setExpandedOffering] = useState<string | null>(null);
+    const [expandedItem, setExpandedItem] = useState<string | null>(null);
+    const [selectedOfferings, setSelectedOfferings] = useState<string[]>([]); // For creating new Tech
+    const [openCombobox, setOpenCombobox] = useState(false); // For new tech offerings
+    const [openAddOffering, setOpenAddOffering] = useState<string | null>(null); // For inline add offering
 
     const handleAdd = async () => {
         if (!newItem) return;
+
+        if (items.includes(newItem)) {
+            alert(`"${newItem}" already exists in ${type}.`);
+            setNewItem('');
+            return;
+        }
+
         console.log(`Adding ${type}: ${newItem}, category: ${newCategory}`);
         try {
             await addDictionaryOption(type, newItem, newCategory || undefined);
+
+            // If creating technology with selected offerings, map them
+            if (type === 'technologies' && selectedOfferings.length > 0) {
+                for (const offering of selectedOfferings) {
+                    await mapOfferingTechnology(offering, newItem, 'add');
+                }
+            }
+
             setNewItem('');
             setNewCategory('');
+            setSelectedOfferings([]);
             onRefresh();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to add item", error);
-            alert("Failed to add item");
+            if (error.message && error.message.includes("400")) {
+                alert("Item already exists or invalid request.");
+                onRefresh();
+            } else {
+                alert("Failed to add item");
+            }
         }
     };
 
@@ -72,32 +102,82 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
 
     return (
         <div className="space-y-6">
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-start">
                 <input
                     type="text"
-                    className="flex-1 border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="flex-1 border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none h-10"
                     placeholder={`Add new ${type.slice(0, -1)}...`}
                     value={newItem}
                     onChange={(e) => setNewItem(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                 />
                 {type === 'technologies' && (
-                    <input
-                        type="text"
-                        className="w-48 border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        placeholder="Category (optional)"
-                        value={newCategory}
-                        onChange={(e) => setNewCategory(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                    />
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            className="w-48 border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none h-10"
+                            placeholder="Category (optional)"
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                        />
+                        {/* Multi-select for Offerings using Popover + Command */}
+                        <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={openCombobox}
+                                    className="justify-between h-10"
+                                >
+                                    <Layers className="mr-2 h-4 w-4" />
+                                    {selectedOfferings.length > 0
+                                        ? `${selectedOfferings.length} Offerings`
+                                        : "Link Offerings"}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search offerings..." />
+                                    <CommandList>
+                                        <CommandEmpty>No offering found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {availableOfferings?.map((offering) => (
+                                                <CommandItem
+                                                    key={offering}
+                                                    value={offering}
+                                                    onSelect={(currentValue) => {
+                                                        setSelectedOfferings(prev =>
+                                                            prev.includes(currentValue)
+                                                                ? prev.filter(item => item !== currentValue)
+                                                                : [...prev, currentValue]
+                                                        );
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <Checkbox
+                                                            checked={selectedOfferings.includes(offering)}
+                                                            onCheckedChange={() => { }} // Handled by CommandItem onSelect
+                                                            className="pointer-events-none"
+                                                        />
+                                                        <span>{offering}</span>
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
                 )}
-                <button
+                <Button
                     onClick={handleAdd}
                     disabled={!newItem}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="h-10"
                 >
-                    <Plus size={16} /> Add
-                </button>
+                    <Plus className="mr-2 h-4 w-4" /> Add
+                </Button>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
@@ -121,8 +201,8 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
                                         onChange={(e) => setEditCategory(e.target.value)}
                                     />
                                 )}
-                                <button onClick={() => handleUpdate(item)} className="text-green-600 hover:text-green-800 p-1"><Save size={16} /></button>
-                                <button onClick={() => setEditingItem(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
+                                <Button size="xs" variant="ghost" onClick={() => handleUpdate(item)} className="text-green-600 hover:text-green-800"><Save size={16} /></Button>
+                                <Button size="xs" variant="ghost" onClick={() => setEditingItem(null)} className="text-slate-400 hover:text-slate-600"><X size={16} /></Button>
                             </div>
                         ) : (
                             <div>
@@ -130,37 +210,84 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm font-medium text-slate-700">{item}</span>
                                         {type === 'offerings' && (
-                                            <button
-                                                onClick={() => setExpandedOffering(expandedOffering === item ? null : item)}
-                                                className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                            <Button
+                                                variant="ghost"
+                                                size="xs"
+                                                onClick={() => setExpandedItem(expandedItem === item ? null : item)}
+                                                className="text-indigo-600 hover:text-indigo-800"
                                             >
-                                                <Layers size={12} />
+                                                <Layers size={12} className="mr-1" />
                                                 {mapping?.[item]?.length || 0} Technologies
-                                            </button>
+                                            </Button>
+                                        )}
+                                        {type === 'technologies' && (
+                                            <div className="flex flex-wrap gap-1 items-center">
+                                                {mapping?.[item]?.map(off => (
+                                                    <span key={off} className="text-xs bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100 flex items-center gap-1">
+                                                        {off}
+                                                        <button onClick={() => handleMapTech(off, item, 'remove')} className="hover:text-red-600"><X size={10} /></button>
+                                                    </span>
+                                                ))}
+
+                                                {/* Inline Add Offering Popover */}
+                                                <Popover open={openAddOffering === item} onOpenChange={(open) => setOpenAddOffering(open ? item : null)}>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" size="xs" className="h-6 w-6 p-0 rounded-full border-dashed border-slate-300 text-slate-400 hover:text-indigo-600 hover:border-indigo-300">
+                                                            <Plus size={10} />
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[200px] p-0" align="start">
+                                                        <Command>
+                                                            <CommandInput placeholder="Add offering..." />
+                                                            <CommandList>
+                                                                <CommandEmpty>No offering found.</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {availableOfferings?.filter(o => !mapping?.[item]?.includes(o)).map((offering) => (
+                                                                        <CommandItem
+                                                                            key={offering}
+                                                                            value={offering}
+                                                                            onSelect={() => {
+                                                                                handleMapTech(offering, item, 'add');
+                                                                                setOpenAddOffering(null);
+                                                                            }}
+                                                                        >
+                                                                            <span>{offering}</span>
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-slate-400 hover:text-indigo-600"
                                             onClick={() => {
                                                 setEditingItem(item);
                                                 setEditValue(item);
                                                 setEditCategory(categories?.[item] || '');
                                             }}
-                                            className="text-slate-400 hover:text-indigo-600 p-1"
                                         >
                                             <Edit2 size={14} />
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-slate-400 hover:text-red-600"
                                             onClick={() => handleDelete(item)}
-                                            className="text-slate-400 hover:text-red-600 p-1"
                                         >
                                             <Trash2 size={14} />
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
 
                                 {/* Offering -> Tech Mapping UI */}
-                                {type === 'offerings' && expandedOffering === item && (
+                                {type === 'offerings' && expandedItem === item && (
                                     <div className="mt-3 pl-4 border-l-2 border-indigo-100">
                                         <div className="text-xs font-bold text-slate-400 uppercase mb-2">Mapped Technologies</div>
                                         <div className="flex flex-wrap gap-2 mb-3">
@@ -183,13 +310,15 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
                                         <div className="text-xs font-bold text-slate-400 uppercase mb-2">Available Technologies</div>
                                         <div className="flex flex-wrap gap-2">
                                             {availableTechs?.filter(t => !mapping?.[item]?.includes(t)).map(tech => (
-                                                <button
+                                                <Button
                                                     key={tech}
+                                                    variant="outline"
+                                                    size="xs"
                                                     onClick={() => handleMapTech(item, tech, 'add')}
-                                                    className="px-2 py-1 rounded bg-white border border-slate-200 text-slate-600 text-xs hover:border-indigo-300 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                                                    className="h-6 text-xs"
                                                 >
-                                                    <Plus size={10} /> {tech}
-                                                </button>
+                                                    <Plus size={10} className="mr-1" /> {tech}
+                                                </Button>
                                             ))}
                                         </div>
                                     </div>
