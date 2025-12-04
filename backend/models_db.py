@@ -64,6 +64,14 @@ class AssetModel(Base):
     uri = Column(String, nullable=True) # For external links or full URI
     owners = Column(JSON, nullable=True) # List of strings
     
+    # New V2 Fields
+    links = Column(JSON, nullable=True) # List of AssetLink objects
+    linked_opportunity_ids = Column(JSON, nullable=True) # List of strings
+    linked_asset_ids = Column(JSON, nullable=True) # List of strings
+    offerings = Column(JSON, nullable=True) # List of strings
+    linked_play_ids = Column(JSON, nullable=True) # List of strings
+    technologies = Column(JSON, nullable=True) # List of strings
+    
     # One-to-one relationship with metadata (Legacy V1, keeping for now but merging fields into AssetModel for V2 simplicity)
     metadata_entry = relationship("AssetMetadataModel", back_populates="asset", uselist=False, cascade="all, delete-orphan")
     

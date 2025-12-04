@@ -4,7 +4,9 @@ import { AdminDictionaryTab } from './AdminDictionaryTab';
 import { AnalyticsTab } from './admin/AnalyticsTab';
 import { GovernanceTab } from './admin/GovernanceTab';
 import { SettingsTab } from './admin/SettingsTab';
-import { Settings, Database, Tag, Globe, Layers, Cpu, Activity, BarChart2, ShieldAlert, Sliders } from 'lucide-react';
+import { Settings, Database, Tag, Globe, Layers, Cpu, Activity, BarChart2, ShieldAlert, Sliders, Upload } from 'lucide-react';
+import { Button } from './ui/button';
+import { ImportModal } from './admin/ImportModal';
 
 interface AdminPageProps {
     dictionary: Dictionary;
@@ -14,6 +16,7 @@ interface AdminPageProps {
 export const AdminPage: React.FC<AdminPageProps> = ({ dictionary, onRefresh }) => {
     console.log("AdminPage dictionary:", dictionary);
     const [activeTab, setActiveTab] = useState('offerings');
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const tabs = [
         { id: 'offerings', label: 'Offerings', icon: Layers },
@@ -98,20 +101,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({ dictionary, onRefresh }) =
             {/* Content */}
             <div className="flex-1 overflow-auto p-8">
                 <div className="max-w-4xl mx-auto">
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-slate-900 mb-2">
-                            {tabs.find(t => t.id === activeTab)?.label}
-                        </h1>
-                        <p className="text-slate-500">
-                            {['analytics', 'governance', 'settings'].includes(activeTab)
-                                ? 'View and manage system-wide configurations and insights.'
-                                : 'Add, edit, or remove options for this field. Changes will be reflected immediately across the application.'}
-                        </p>
+                    <div className="mb-8 flex justify-between items-start">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                                {tabs.find(t => t.id === activeTab)?.label}
+                            </h1>
+                            <p className="text-slate-500">
+                                {['analytics', 'governance', 'settings'].includes(activeTab)
+                                    ? 'View and manage system-wide configurations and insights.'
+                                    : 'Add, edit, or remove options for this field. Changes will be reflected immediately across the application.'}
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="gap-2"
+                        >
+                            <Upload size={16} /> Import
+                        </Button>
                     </div>
 
                     {renderContent()}
                 </div>
             </div>
+
+            <ImportModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                type={activeTab}
+                onSuccess={() => {
+                    onRefresh();
+                }}
+            />
         </div>
     );
 };

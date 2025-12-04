@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Dict
@@ -9,7 +9,7 @@ from ..models_db import (
     SectorModel, GeoModel, StageModel
 )
 from .schemas_v2 import (
-    Dictionary, Play, Asset, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate
+    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate
 )
 import uuid
 
@@ -148,7 +148,7 @@ async def get_assets(db: AsyncSession = Depends(get_db)):
     return result_list
 
 @router.post("/assets", response_model=Asset)
-async def create_asset(asset: Asset, db: AsyncSession = Depends(get_db)):
+async def create_asset(asset: AssetCreate, db: AsyncSession = Depends(get_db)):
     db_asset = AssetModel(
         id=str(uuid.uuid4()),
         title=asset.title,
@@ -159,7 +159,13 @@ async def create_asset(asset: Asset, db: AsyncSession = Depends(get_db)):
         uri=asset.uri,
         owners=asset.owners,
         original_filename="placeholder", 
-        file_path=f"placeholder_{uuid.uuid4()}"
+        file_path=f"placeholder_{uuid.uuid4()}",
+        links=[l.dict() for l in asset.links] if asset.links else [],
+        linked_opportunity_ids=asset.linked_opportunity_ids,
+        linked_asset_ids=asset.linked_asset_ids,
+        offerings=asset.offerings,
+        linked_play_ids=asset.linked_play_ids,
+        technologies=asset.technologies
     )
     db.add(db_asset)
     await db.commit()
@@ -175,7 +181,13 @@ async def create_asset(asset: Asset, db: AsyncSession = Depends(get_db)):
             tags=[],
             owners=db_asset.owners or [],
             created_at=db_asset.created_at,
-            updated_at=db_asset.updated_at
+            updated_at=db_asset.updated_at,
+            links=[AssetLink(**l) for l in db_asset.links] if db_asset.links else [],
+            linked_opportunity_ids=db_asset.linked_opportunity_ids or [],
+            linked_asset_ids=db_asset.linked_asset_ids or [],
+            offerings=db_asset.offerings or [],
+            linked_play_ids=db_asset.linked_play_ids or [],
+            technologies=db_asset.technologies or []
         )
 
 # --- Opportunities ---
@@ -380,3 +392,120 @@ async def map_offering_technology(offering: str, technology: str, action: str = 
             
     await db.commit()
     return {"status": "success"}
+
+# --- Import ---
+
+@router.post("/admin/import/{type}")
+async def import_dictionary_items(
+    type: str, 
+    file: UploadFile = File(...), 
+    db: AsyncSession = Depends(get_db)
+):
+    import json
+    import yaml
+    import csv
+    import io
+
+    model_map = {
+        "offerings": OfferingModel,
+        "technologies": TechnologyModel,
+        "stages": StageModel,
+        "sectors": SectorModel,
+        "geos": GeoModel,
+        "tags": TagModel
+    }
+    
+    if type not in model_map:
+        raise HTTPException(status_code=400, detail="Invalid dictionary type")
+        
+    Model = model_map[type]
+    
+    content = await file.read()
+    filename = file.filename.lower()
+    
+    items_to_add = []
+    
+    try:
+        if filename.endswith('.json'):
+            data = json.loads(content)
+            if isinstance(data, list):
+                items_to_add = data
+            elif isinstance(data, dict) and 'items' in data:
+                items_to_add = data['items']
+            else:
+                raise ValueError("JSON must be a list or object with 'items' key")
+                
+        elif filename.endswith(('.yaml', '.yml')):
+            data = yaml.safe_load(content)
+            if isinstance(data, list):
+                items_to_add = data
+            elif isinstance(data, dict) and 'items' in data:
+                items_to_add = data['items']
+            else:
+                raise ValueError("YAML must be a list or object with 'items' key")
+                
+        elif filename.endswith('.csv'):
+            # Decode bytes to string
+            text_content = content.decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(text_content))
+            for row in csv_reader:
+                # Expect 'value' column, optional 'category'
+                if 'value' in row:
+                    item = {'value': row['value']}
+                    if 'category' in row:
+                        item['category'] = row['category']
+                    items_to_add.append(item)
+                elif 'name' in row: # Allow 'name' as alias for 'value'
+                    item = {'value': row['name']}
+                    if 'category' in row:
+                        item['category'] = row['category']
+                    items_to_add.append(item)
+                    
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file format. Use JSON, YAML, or CSV.")
+            
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+        
+    # Process items
+    added_count = 0
+    errors = []
+    
+    for item in items_to_add:
+        # Normalize item structure
+        if isinstance(item, str):
+            value = item
+            category = None
+        elif isinstance(item, dict):
+            value = item.get('value') or item.get('name')
+            category = item.get('category')
+        else:
+            continue
+            
+        if not value:
+            continue
+            
+        # Check existence
+        existing = await db.execute(select(Model).filter(Model.name == value))
+        if existing.scalars().first():
+            continue # Skip duplicates
+            
+        try:
+            if type == "technologies" and category:
+                new_option = Model(name=value, category=category)
+            else:
+                new_option = Model(name=value)
+            
+            db.add(new_option)
+            added_count += 1
+        except Exception as e:
+            errors.append(f"Failed to add {value}: {str(e)}")
+            
+    await db.commit()
+    
+    return {
+        "status": "success", 
+        "added": added_count, 
+        "total_processed": len(items_to_add),
+        "errors": errors
+    }

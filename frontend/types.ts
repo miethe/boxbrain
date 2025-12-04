@@ -60,6 +60,9 @@ export interface Asset {
   created_at: string;
   updated_at: string;
   technologies?: string[];
+
+  linked_opportunity_ids?: string[];
+  linked_asset_ids?: string[];
 }
 
 export interface Dictionary {

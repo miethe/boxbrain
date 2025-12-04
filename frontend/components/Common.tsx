@@ -74,6 +74,7 @@ export interface MultiSelectProps {
     value: string | string[];
     options: string[];
     onChange: (value: string | string[]) => void;
+    onCreate?: (value: string) => void;
     creatable?: boolean;
     multiple?: boolean;
     placeholder?: string;
@@ -85,6 +86,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     value,
     options = [],
     onChange,
+    onCreate,
     creatable = false,
     multiple = false,
     placeholder = 'Select...',
@@ -123,7 +125,11 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
 
     const handleCreate = () => {
         if (!inputValue.trim()) return;
-        handleSelect(inputValue.trim());
+        const newValue = inputValue.trim();
+        if (onCreate) {
+            onCreate(newValue);
+        }
+        handleSelect(newValue);
     };
 
     const handleRemove = (e: React.MouseEvent, val: string) => {

@@ -131,10 +131,30 @@ export const deleteDictionaryOption = async (type: string, value: string): Promi
   });
 };
 
-export const mapOfferingTechnology = async (offering: string, technology: string, action: 'add' | 'remove'): Promise<any> => {
-  return fetchApi(`/admin/dictionary/mapping/offering-technology?offering=${encodeURIComponent(offering)}&technology=${encodeURIComponent(technology)}&action=${action}`, {
-    method: 'POST'
+export const mapOfferingTechnology = async (offering: string, technology: string, action: 'add' | 'remove') => {
+  const response = await fetch(`${API_BASE}/admin/dictionary/mapping/offering-technology?offering=${encodeURIComponent(offering)}&technology=${encodeURIComponent(technology)}&action=${action}`, {
+    method: 'POST',
   });
+  if (!response.ok) {
+    throw new Error('Failed to map offering technology');
+  }
+  return response.json();
+};
+
+export const importDictionaryItems = async (type: string, file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE}/admin/import/${type}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to import items');
+  }
+  return response.json();
 };
 
 // --- Logic ---

@@ -27,9 +27,28 @@ class Asset(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     technologies: Optional[List[str]] = []
+    linked_opportunity_ids: Optional[List[str]] = []
+    linked_asset_ids: Optional[List[str]] = []
     
     class Config:
         from_attributes = True
+
+class AssetCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    kind: str = 'other'
+    uri: Optional[str] = None
+    purpose: Optional[str] = None
+    default_stage: Optional[str] = None
+    collections: Optional[List[str]] = []
+    offerings: Optional[List[str]] = []
+    linked_play_ids: Optional[List[str]] = []
+    tags: List[str] = []
+    owners: Optional[List[str]] = []
+    technologies: Optional[List[str]] = []
+    links: Optional[List[AssetLink]] = []
+    linked_opportunity_ids: Optional[List[str]] = []
+    linked_asset_ids: Optional[List[str]] = []
 
 class PlayStageDefinition(BaseModel):
     key: str
