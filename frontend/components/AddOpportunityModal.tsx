@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dictionary, OpportunityInput } from '../types';
-import { X, Save, Briefcase } from 'lucide-react';
-import { createOpportunity } from '../services/dataService';
+import { X, Save, Briefcase, Plus } from 'lucide-react';
+import { createOpportunity, addDictionaryOption } from '../services/dataService';
+import { MultiSelect } from './Common';
+import { CollapsibleSection } from './ui/CollapsibleSection';
 
 interface AddOpportunityModalProps {
     dictionary: Dictionary;
@@ -21,23 +23,22 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
     });
 
     const [accountName, setAccountName] = useState('');
-    const [availableTechs, setAvailableTechs] = useState<string[]>([]);
+    const [availableTechnologies, setAvailableTechnologies] = useState<string[]>([]);
+    const [newTechInput, setNewTechInput] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
-    React.useEffect(() => {
-        if (formData.offering && dictionary.offering_to_technologies) {
-            setAvailableTechs(dictionary.offering_to_technologies[formData.offering] || []);
-        } else {
-            setAvailableTechs(dictionary.technologies || []);
+    // Initialize available technologies from dictionary
+    useEffect(() => {
+        if (dictionary.technologies) {
+            setAvailableTechnologies(dictionary.technologies);
         }
-    }, [formData.offering, dictionary]);
+    }, [dictionary.technologies]);
 
     const handleSave = async () => {
         if (!accountName || !formData.offering) return;
 
+        setIsSaving(true);
         try {
-            // We need to adapt the input to what the backend expects or update the service
-            // The current createOpportunity service might need updating or we create a new one
-            // For now, let's assume we update the service to accept this full object
             const newOpp = await createOpportunity(
                 `${formData.offering} for ${accountName}`,
                 accountName,
@@ -45,13 +46,16 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
                 formData
             );
             onSave(newOpp);
+            onClose();
         } catch (error) {
             console.error("Failed to create opportunity", error);
             alert("Failed to create opportunity");
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const toggleTech = (tech: string) => {
+    const toggleTechnology = (tech: string) => {
         setFormData(prev => ({
             ...prev,
             technologies: prev.technologies.includes(tech)
@@ -60,9 +64,87 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
         }));
     };
 
+    const handleAddTechnology = async (newTech: string) => {
+        if (!newTech) return;
+        if (!availableTechnologies.includes(newTech)) {
+            setAvailableTechnologies(prev => [...prev, newTech]);
+            try {
+                await addDictionaryOption('technologies', newTech, 'Uncategorized');
+            } catch (e) {
+                console.error("Failed to add technology", e);
+            }
+        }
+        toggleTechnology(newTech);
+    };
+
+    const handleAddTag = async (newTag: string) => {
+        if (!newTag) return;
+        if (!dictionary.tags?.includes(newTag)) {
+            try {
+                await addDictionaryOption('tags', newTag);
+                if (dictionary.tags) dictionary.tags.push(newTag);
+            } catch (e) {
+                console.error("Failed to add tag", e);
+            }
+        }
+
+        setFormData(prev => {
+            const current = prev.tags || [];
+            return {
+                ...prev,
+                tags: current.includes(newTag) ? current : [...current, newTag]
+            };
+        });
+    };
+
+    // Group technologies logic
+    const groupedTechnologies = useMemo(() => {
+        const groups: Record<string, string[]> = {};
+        const relevantTechs = new Set<string>();
+        const suggestedGroupKey = "Suggested for Selected Offerings";
+
+        // Handle comma-separated offerings
+        const selectedOfferings = formData.offering ? formData.offering.split(',') : [];
+
+        if (selectedOfferings.length > 0 && dictionary.offering_to_technologies) {
+            selectedOfferings.forEach(offering => {
+                const techs = dictionary.offering_to_technologies?.[offering.trim()];
+                if (techs) techs.forEach(t => relevantTechs.add(t));
+            });
+        }
+
+        availableTechnologies.forEach(tech => {
+            if (relevantTechs.has(tech)) {
+                if (!groups[suggestedGroupKey]) groups[suggestedGroupKey] = [];
+                groups[suggestedGroupKey].push(tech);
+            } else {
+                let cat = dictionary.technology_categories?.[tech];
+                if (!cat || cat === 'Other' || cat === 'Other / Uncategorized') {
+                    cat = 'Uncategorized';
+                }
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(tech);
+            }
+        });
+
+        const sortedGroups: Record<string, string[]> = {};
+        if (groups[suggestedGroupKey]) {
+            sortedGroups[suggestedGroupKey] = groups[suggestedGroupKey];
+            delete groups[suggestedGroupKey];
+        }
+        Object.keys(groups).sort().forEach(key => {
+            if (key !== 'Uncategorized') sortedGroups[key] = groups[key];
+        });
+        if (groups['Uncategorized']) {
+            sortedGroups['Uncategorized'] = groups['Uncategorized'];
+        }
+
+        return sortedGroups;
+    }, [availableTechnologies, dictionary.technology_categories, formData.offering, dictionary.offering_to_technologies]);
+
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200 bg-white">
+        <div className="flex flex-col h-full bg-slate-50 max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-6 border-b border-slate-200 bg-white flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="bg-indigo-100 p-2 rounded-full text-indigo-600">
                         <Briefcase size={24} />
@@ -74,114 +156,168 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
                 </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
                 <div className="space-y-6 max-w-3xl mx-auto">
 
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">Deal Info</h3>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Account Name <span className="text-red-500">*</span></label>
-                            <input
-                                type="text"
-                                className="w-full border border-slate-300 rounded-md p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                placeholder="e.g. Acme Corp"
-                                value={accountName}
-                                onChange={(e) => setAccountName(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
+                    <CollapsibleSection title="Deal Info" defaultExpanded={true}>
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Offering <span className="text-red-500">*</span></label>
-                                <select
-                                    className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
-                                    value={formData.offering}
-                                    onChange={(e) => setFormData({ ...formData, offering: e.target.value, technologies: [] })}
-                                >
-                                    <option value="">Select Offering...</option>
-                                    {dictionary.offerings?.map(o => <option key={o} value={o}>{o}</option>)}
-                                </select>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Account Name <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-slate-300 rounded-md p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    placeholder="e.g. Acme Corp"
+                                    value={accountName}
+                                    onChange={(e) => setAccountName(e.target.value)}
+                                    autoFocus
+                                />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Sales Stage</label>
-                                <select
-                                    className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
-                                    value={formData.stage}
-                                    onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
-                                >
-                                    {dictionary.stages?.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                        </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <MultiSelect
+                                        label="Offering"
+                                        options={dictionary.offerings || []}
+                                        value={formData.offering ? formData.offering.split(',') : []}
+                                        onChange={(val) => {
+                                            const newVal = Array.isArray(val) ? val.join(',') : val;
+                                            setFormData({ ...formData, offering: newVal });
+                                        }}
+                                        multiple
+                                        placeholder="Select offerings..."
+                                    />
+                                </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Sector</label>
-                                <select
-                                    className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
-                                    value={formData.sector}
-                                    onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
-                                >
-                                    <option value="">Select Sector...</option>
-                                    {dictionary.sectors?.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Geo</label>
-                                <select
-                                    className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
-                                    value={formData.geo}
-                                    onChange={(e) => setFormData({ ...formData, geo: e.target.value })}
-                                >
-                                    {dictionary.geos?.map(g => <option key={g} value={g}>{g}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Technologies</label>
-                            <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-md border border-slate-200 min-h-[60px]">
-                                {availableTechs.length > 0 ? availableTechs.map(tech => (
-                                    <button
-                                        key={tech}
-                                        onClick={() => toggleTech(tech)}
-                                        className={`px-3 py-1.5 text-xs rounded-full border transition-all ${formData.technologies.includes(tech)
-                                                ? 'bg-indigo-600 border-indigo-600 text-white'
-                                                : 'bg-white border-slate-300 text-slate-700 hover:border-indigo-400'
-                                            }`}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Sales Stage</label>
+                                    <select
+                                        className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                                        value={formData.stage}
+                                        onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
                                     >
-                                        {tech}
-                                    </button>
-                                )) : <span className="text-slate-400 text-sm italic">Select an offering to see technologies</span>}
+                                        {dictionary.stages?.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Sector</label>
+                                    <select
+                                        className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                                        value={formData.sector}
+                                        onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                                    >
+                                        <option value="">Select Sector...</option>
+                                        {dictionary.sectors?.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Geo</label>
+                                    <select
+                                        className="w-full border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                                        value={formData.geo}
+                                        onChange={(e) => setFormData({ ...formData, geo: e.target.value })}
+                                    >
+                                        {dictionary.geos?.map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <MultiSelect
+                                    label="Tags"
+                                    options={dictionary.tags || []}
+                                    value={formData.tags || []}
+                                    onChange={(val) => setFormData({ ...formData, tags: Array.isArray(val) ? val : [val] })}
+                                    onCreate={handleAddTag}
+                                    multiple
+                                    creatable
+                                    placeholder="Select or create tags..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Notes / Problem Statement</label>
+                                <textarea
+                                    className="w-full border border-slate-300 rounded-md p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    placeholder="Describe the customer problem..."
+                                    rows={4}
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                />
                             </div>
                         </div>
+                    </CollapsibleSection>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Notes / Problem Statement</label>
-                            <textarea
-                                className="w-full border border-slate-300 rounded-md p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                placeholder="Describe the customer problem..."
-                                rows={4}
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                            />
+                    <CollapsibleSection title="Related Technologies">
+                        <div className="space-y-4 max-h-60 overflow-y-auto pr-2 border border-slate-100 rounded-lg p-3 bg-slate-50">
+                            {Object.entries(groupedTechnologies).map(([category, techs]) => (
+                                <div key={category}>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 sticky top-0 bg-slate-50 py-1">{category}</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {techs.map(tech => (
+                                            <button
+                                                key={tech}
+                                                onClick={() => toggleTechnology(tech)}
+                                                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${formData.technologies.includes(tech)
+                                                    ? 'bg-indigo-600 border-indigo-600 text-white'
+                                                    : 'bg-white border-slate-300 text-slate-700 hover:border-indigo-400'
+                                                    }`}
+                                            >
+                                                {tech}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                            {Object.keys(groupedTechnologies).length === 0 && <p className="text-sm text-slate-500">No relevant technologies found for selected offerings.</p>}
+
+                            {/* Inline Add */}
+                            <div className="pt-2 border-t border-slate-200 mt-2">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 border border-slate-300 rounded-md p-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                        placeholder="Add new technology..."
+                                        value={newTechInput}
+                                        onChange={(e) => setNewTechInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddTechnology(newTechInput);
+                                                setNewTechInput('');
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            handleAddTechnology(newTechInput);
+                                            setNewTechInput('');
+                                        }}
+                                        disabled={!newTechInput}
+                                        className="px-3 py-1 bg-slate-200 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-300 disabled:opacity-50"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </CollapsibleSection>
+
                 </div>
             </div>
 
-            <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3">
+            <div className="p-6 border-t border-slate-200 bg-white flex justify-end gap-3 flex-shrink-0">
                 <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
                     Cancel
                 </button>
                 <button
                     onClick={handleSave}
-                    disabled={!accountName || !formData.offering}
+                    disabled={!accountName || !formData.offering || isSaving}
                     className="px-5 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                    <Save size={18} /> Create Opportunity
+                    <Save size={18} /> {isSaving ? 'Creating...' : 'Create Opportunity'}
                 </button>
             </div>
         </div>

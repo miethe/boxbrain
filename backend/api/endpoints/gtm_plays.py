@@ -15,8 +15,8 @@ async def create_play(play: GTMPlayCreate, db: AsyncSession = Depends(get_db)):
         title=play.title,
         description=play.description,
         offering=play.offering,
-        industry=play.industry,
-        region=play.region,
+        sector=play.industry, # Map industry -> sector
+        geo=play.region,      # Map region -> geo
         sales_stage=play.sales_stage
     )
     db.add(db_play)
@@ -27,8 +27,8 @@ async def create_play(play: GTMPlayCreate, db: AsyncSession = Depends(get_db)):
         title=db_play.title,
         description=db_play.description,
         offering=db_play.offering,
-        industry=db_play.industry,
-        region=db_play.region,
+        industry=db_play.sector, # Map sector -> industry
+        region=db_play.geo,      # Map geo -> region
         sales_stage=db_play.sales_stage,
         assets=[]
     )

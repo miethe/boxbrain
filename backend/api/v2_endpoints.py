@@ -194,16 +194,34 @@ async def create_asset(asset: AssetCreate, db: AsyncSession = Depends(get_db)):
 
 @router.get("/opportunities", response_model=List[Opportunity])
 async def get_opportunities(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(OpportunityModel))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(OpportunityModel).options(selectinload(OpportunityModel.opportunity_plays))
+    )
     opps = result.scalars().all()
+    
+    # Handle None values for list fields to match schema
+    for opp in opps:
+        if opp.team_member_user_ids is None:
+            opp.team_member_user_ids = []
+            
     return opps
 
 @router.get("/opportunities/{opp_id}", response_model=Opportunity)
 async def get_opportunity(opp_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(OpportunityModel).filter(OpportunityModel.id == opp_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(OpportunityModel)
+        .options(selectinload(OpportunityModel.opportunity_plays))
+        .filter(OpportunityModel.id == opp_id)
+    )
     opp = result.scalars().first()
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
+        
+    if opp.team_member_user_ids is None:
+        opp.team_member_user_ids = []
+        
     return opp
 
 @router.post("/opportunities", response_model=Opportunity)
@@ -218,11 +236,17 @@ async def create_opportunity(input: OpportunityInput, db: AsyncSession = Depends
         problem_statement=input.notes,
         status="active",
         health="green",
-        tags=input.tags
+        tags=input.tags,
+        team_member_user_ids=[] # Initialize to empty list to satisfy schema
     )
     db.add(opp)
     await db.commit()
     await db.refresh(opp)
+    from sqlalchemy.orm import attributes
+    
+    # Explicitly set empty list to avoid MissingGreenlet on lazy load
+    attributes.set_committed_value(opp, 'opportunity_plays', [])
+    
     return opp
 @router.post("/plays", response_model=Play)
 async def create_play(play: PlayCreate, db: AsyncSession = Depends(get_db)):

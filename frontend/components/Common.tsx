@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Check, ChevronDown, Plus } from 'lucide-react';
 
 export const Badge: React.FC<{ children: React.ReactNode; color?: 'blue' | 'green' | 'gray' | 'red' | 'yellow' }> = ({ children, color = 'gray' }) => {
@@ -79,6 +80,7 @@ export interface MultiSelectProps {
     multiple?: boolean;
     placeholder?: string;
     className?: string;
+    autoFocus?: boolean;
 }
 
 export const MultiSelect: React.FC<MultiSelectProps> = ({
@@ -91,10 +93,12 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     multiple = false,
     placeholder = 'Select...',
     className = '',
+    autoFocus = false,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
 
     // Safe array handling
     const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
@@ -102,12 +106,38 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                // Check if click is inside the portal dropdown
+                const dropdown = document.getElementById('multiselect-dropdown');
+                if (dropdown && dropdown.contains(event.target as Node)) {
+                    return;
+                }
                 setIsOpen(false);
             }
         };
+
+        const handleScroll = () => {
+            if (isOpen) setIsOpen(false); // Close on scroll to avoid detached dropdown
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        window.addEventListener('scroll', handleScroll, true); // Capture scroll on any element
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setPosition({
+                top: rect.bottom + window.scrollY,
+                left: rect.left + window.scrollX,
+                width: rect.width
+            });
+        }
+    }, [isOpen]);
 
     const handleSelect = (option: string) => {
         if (multiple) {
@@ -173,6 +203,8 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                         placeholder={selectedValues.length === 0 ? placeholder : ''}
                         value={inputValue}
                         onChange={e => { setInputValue(e.target.value); setIsOpen(true); }}
+                        onFocus={() => setIsOpen(true)}
+                        autoFocus={autoFocus}
                         onKeyDown={e => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
@@ -188,8 +220,16 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                 <ChevronDown className="w-4 h-4 text-slate-400 ml-1 cursor-pointer" />
             </div>
 
-            {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
+            {isOpen && createPortal(
+                <div
+                    id="multiselect-dropdown"
+                    className="fixed z-[9999] bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto"
+                    style={{
+                        top: `${position.top}px`,
+                        left: `${position.left}px`,
+                        width: `${position.width}px`
+                    }}
+                >
                     {filteredOptions.map(opt => (
                         <button
                             key={opt}
@@ -217,7 +257,8 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                     {!showCreate && filteredOptions.length === 0 && (
                         <div className="px-4 py-2 text-sm text-slate-500">No options found</div>
                     )}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

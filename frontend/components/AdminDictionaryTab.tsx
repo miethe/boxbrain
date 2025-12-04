@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Save, X, Layers, Check } from 'lucide-react';
 import { addDictionaryOption, updateDictionaryOption, deleteDictionaryOption, mapOfferingTechnology } from '../services/dataService';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
-import { Checkbox } from './ui/checkbox';
 import { Button } from './ui/button';
+import { MultiSelect } from './Common';
 import { cn } from '../lib/utils';
 
 interface AdminDictionaryTabProps {
@@ -25,7 +24,6 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
     const [newCategory, setNewCategory] = useState('');
     const [expandedItem, setExpandedItem] = useState<string | null>(null);
     const [selectedOfferings, setSelectedOfferings] = useState<string[]>([]); // For creating new Tech
-    const [openCombobox, setOpenCombobox] = useState(false); // For new tech offerings
     const [openAddOffering, setOpenAddOffering] = useState<string | null>(null); // For inline add offering
 
     const handleAdd = async () => {
@@ -112,7 +110,7 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
                     onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                 />
                 {type === 'technologies' && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                         <input
                             type="text"
                             className="w-48 border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none h-10"
@@ -121,54 +119,15 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
                             onChange={(e) => setNewCategory(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                         />
-                        {/* Multi-select for Offerings using Popover + Command */}
-                        <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={openCombobox}
-                                    className="justify-between h-10"
-                                >
-                                    <Layers className="mr-2 h-4 w-4" />
-                                    {selectedOfferings.length > 0
-                                        ? `${selectedOfferings.length} Offerings`
-                                        : "Link Offerings"}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Search offerings..." />
-                                    <CommandList>
-                                        <CommandEmpty>No offering found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {availableOfferings?.map((offering) => (
-                                                <CommandItem
-                                                    key={offering}
-                                                    value={offering}
-                                                    onSelect={(currentValue) => {
-                                                        setSelectedOfferings(prev =>
-                                                            prev.includes(currentValue)
-                                                                ? prev.filter(item => item !== currentValue)
-                                                                : [...prev, currentValue]
-                                                        );
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <Checkbox
-                                                            checked={selectedOfferings.includes(offering)}
-                                                            onCheckedChange={() => { }} // Handled by CommandItem onSelect
-                                                            className="pointer-events-none"
-                                                        />
-                                                        <span>{offering}</span>
-                                                    </div>
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <div className="w-64">
+                            <MultiSelect
+                                options={availableOfferings || []}
+                                value={selectedOfferings}
+                                onChange={(val) => setSelectedOfferings(Array.isArray(val) ? val : [val])}
+                                multiple
+                                placeholder="Link Offerings..."
+                            />
+                        </div>
                     </div>
                 )}
                 <Button
@@ -182,7 +141,7 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
 
             <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
                 {items.map(item => (
-                    <div key={item} className="p-3 hover:bg-slate-50 transition-colors">
+                    <div key={item} className="group p-3 hover:bg-slate-50 transition-colors">
                         {editingItem === item ? (
                             <div className="flex items-center gap-2">
                                 <input
@@ -236,27 +195,24 @@ export const AdminDictionaryTab: React.FC<AdminDictionaryTabProps> = ({ type, it
                                                             <Plus size={10} />
                                                         </Button>
                                                     </PopoverTrigger>
-                                                    <PopoverContent className="w-[200px] p-0" align="start">
-                                                        <Command>
-                                                            <CommandInput placeholder="Add offering..." />
-                                                            <CommandList>
-                                                                <CommandEmpty>No offering found.</CommandEmpty>
-                                                                <CommandGroup>
-                                                                    {availableOfferings?.filter(o => !mapping?.[item]?.includes(o)).map((offering) => (
-                                                                        <CommandItem
-                                                                            key={offering}
-                                                                            value={offering}
-                                                                            onSelect={() => {
-                                                                                handleMapTech(offering, item, 'add');
-                                                                                setOpenAddOffering(null);
-                                                                            }}
-                                                                        >
-                                                                            <span>{offering}</span>
-                                                                        </CommandItem>
-                                                                    ))}
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
+                                                    <PopoverContent className="w-[250px] p-0" align="start">
+                                                        <div className="p-1">
+                                                            <MultiSelect
+                                                                options={availableOfferings?.filter(o => !mapping?.[item]?.includes(o)) || []}
+                                                                value={[]}
+                                                                onChange={(val) => {
+                                                                    const selected = Array.isArray(val) ? val[0] : val;
+                                                                    if (selected) {
+                                                                        handleMapTech(selected, item, 'add');
+                                                                        setOpenAddOffering(null);
+                                                                    }
+                                                                }}
+                                                                multiple={false}
+                                                                placeholder="Select offering to add..."
+                                                                autoFocus
+                                                                className="border-0"
+                                                            />
+                                                        </div>
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
