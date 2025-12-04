@@ -36,6 +36,14 @@ play_technologies = Table(
     Column('technology_id', Integer, ForeignKey('technologies.id'), primary_key=True)
 )
 
+# Association table for many-to-many relationship between Offerings and Technologies
+offering_technologies = Table(
+    'offering_technologies',
+    Base.metadata,
+    Column('offering_id', Integer, ForeignKey('offerings.id'), primary_key=True),
+    Column('technology_id', Integer, ForeignKey('technologies.id'), primary_key=True)
+)
+
 class AssetModel(Base):
     __tablename__ = "assets"
 
@@ -118,15 +126,18 @@ class OfferingModel(Base):
     __tablename__ = "offerings"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-    technologies = relationship("TechnologyModel", back_populates="offering")
+    name = Column(String, unique=True, nullable=False)
+    technologies = relationship("TechnologyModel", secondary=offering_technologies, back_populates="offerings")
 
 class TechnologyModel(Base):
     __tablename__ = "technologies"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     category = Column(String, nullable=True) # e.g. 'Cloud', 'DevOps', 'Security'
+    category = Column(String, nullable=True) # e.g. 'Cloud', 'DevOps', 'Security'
+    # Deprecated: offering_id is replaced by many-to-many relationship
     offering_id = Column(Integer, ForeignKey('offerings.id'), nullable=True)
-    offering = relationship("OfferingModel", back_populates="technologies")
+    offerings = relationship("OfferingModel", secondary=offering_technologies, back_populates="technologies")
     plays = relationship("GTMPlayModel", secondary=play_technologies, back_populates="technologies")
     opportunities = relationship("OpportunityModel", secondary=opportunity_technologies, back_populates="primary_technologies")
 

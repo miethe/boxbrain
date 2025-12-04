@@ -368,11 +368,15 @@ async def map_offering_technology(offering: str, technology: str, action: str = 
     if not off_obj or not tech_obj:
         raise HTTPException(status_code=404, detail="Offering or Technology not found")
         
+    # Ensure offerings collection is loaded
+    await db.refresh(tech_obj, attribute_names=['offerings'])
+    
     if action == "add":
-        tech_obj.offering_id = off_obj.id
+        if off_obj not in tech_obj.offerings:
+            tech_obj.offerings.append(off_obj)
     elif action == "remove":
-        if tech_obj.offering_id == off_obj.id:
-            tech_obj.offering_id = None
+        if off_obj in tech_obj.offerings:
+            tech_obj.offerings.remove(off_obj)
             
     await db.commit()
     return {"status": "success"}
