@@ -39,12 +39,11 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
 
         setIsSaving(true);
         try {
-            const newOpp = await createOpportunity(
-                `${formData.offering} for ${accountName}`,
-                accountName,
-                undefined, // playId is optional initially
-                formData
-            );
+            const newOpp = await createOpportunity({
+                ...formData,
+                name: `${formData.offering} for ${accountName}`,
+                account_name: accountName
+            });
             onSave(newOpp);
             onClose();
         } catch (error) {

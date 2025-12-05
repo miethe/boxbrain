@@ -10,6 +10,9 @@ export interface OpportunityInput {
   geo: string;
   tags: string[];
   notes: string;
+  plays?: string[];
+  name?: string;
+  account_name?: string;
 }
 
 export interface PlayStageDefinition {

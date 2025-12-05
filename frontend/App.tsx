@@ -178,6 +178,7 @@ export default function App() {
           dictionary={dictionary}
           plays={plays}
           onViewPlay={handleViewPlay}
+          onSave={handleSaveNewOpp}
         />
       )}
 

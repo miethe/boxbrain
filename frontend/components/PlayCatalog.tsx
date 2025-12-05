@@ -74,7 +74,18 @@ export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onV
 
     const confirmCreateOpp = async () => {
         if (createOppModalPlay && newOppName && newAccountName) {
-            const newOpp = await createOpportunity(newOppName, newAccountName, createOppModalPlay.id as string);
+            const newOpp = await createOpportunity({
+                offering: createOppModalPlay.offering || 'Unknown',
+                stage: 'Discovery', // Default
+                technologies: [],
+                geo: 'Americas',
+                tags: [],
+                notes: `Created from Play: ${createOppModalPlay.title}`,
+                sector: 'Unknown',
+                name: newOppName,
+                account_name: newAccountName,
+                plays: [createOppModalPlay.id as string]
+            });
             setCreateOppModalPlay(null);
             setNewOppName('');
             setNewAccountName('');

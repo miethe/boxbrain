@@ -130,11 +130,15 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
 
     useEffect(() => {
         if (isOpen && containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            setPosition({
-                top: rect.bottom + window.scrollY,
-                left: rect.left + window.scrollX,
-                width: rect.width
+            // Use requestAnimationFrame to wait for any layout shifts (like Popover positioning)
+            requestAnimationFrame(() => {
+                if (!containerRef.current) return;
+                const rect = containerRef.current.getBoundingClientRect();
+                setPosition({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX,
+                    width: rect.width
+                });
             });
         }
     }, [isOpen]);
@@ -223,7 +227,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
             {isOpen && createPortal(
                 <div
                     id="multiselect-dropdown"
-                    className="fixed z-[9999] bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto"
+                    className="absolute z-[9999] bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto"
                     style={{
                         top: `${position.top}px`,
                         left: `${position.left}px`,

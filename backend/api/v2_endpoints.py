@@ -9,7 +9,7 @@ from ..models_db import (
     SectorModel, GeoModel, StageModel
 )
 from .schemas_v2 import (
-    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate
+    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate, StageUpdate, OpportunityStageInstance
 )
 import uuid
 
@@ -228,8 +228,8 @@ async def get_opportunity(opp_id: str, db: AsyncSession = Depends(get_db)):
 async def create_opportunity(input: OpportunityInput, db: AsyncSession = Depends(get_db)):
     opp = OpportunityModel(
         id=str(uuid.uuid4()),
-        name=f"New Opportunity - {input.offering}",
-        account_name="New Account", 
+        name=input.name or f"New Opportunity - {input.offering}",
+        account_name=input.account_name or "New Account", 
         sales_stage=input.stage,
         region=input.geo,
         industry=input.sector,
@@ -247,7 +247,133 @@ async def create_opportunity(input: OpportunityInput, db: AsyncSession = Depends
     # Explicitly set empty list to avoid MissingGreenlet on lazy load
     attributes.set_committed_value(opp, 'opportunity_plays', [])
     
+    # Handle Plays
+    if input.plays:
+        for play_id in input.plays:
+            # Verify play exists
+            play_result = await db.execute(select(GTMPlayModel).filter(GTMPlayModel.id == int(play_id)))
+            play = play_result.scalars().first()
+            
+            if play:
+                # Create OpportunityPlay
+                opp_play_id = str(uuid.uuid4())
+                opp_play = OpportunityPlayModel(
+                    id=opp_play_id,
+                    opportunity_id=opp.id,
+                    play_id=play.id, # Use play.id from the fetched play
+                    is_primary=False, # You might want to logic this
+                    is_active=True
+                )
+                
+                # Initialize stage instances for this play
+                if play.stages:
+                    for stage in play.stages:
+                        # Ensure stage is a dict (it might be a Pydantic model if coming from internal call, but here it's from DB model which is JSON)
+                        # DB model stages is JSON, so it's a list of dicts.
+                        
+                        stage_instance = OpportunityStageInstanceModel(
+                            id=str(uuid.uuid4()),
+                            opportunity_play_id=opp_play_id,
+                            play_stage_key=stage['key'],
+                            status="not_started",
+                            checklist_item_statuses={}
+                        )
+                        opp_play.stage_instances.append(stage_instance)
+                
+                opp.opportunity_plays.append(opp_play)
+    
+    await db.commit()
+    
+    # Re-fetch the opportunity to ensure everything is loaded and fresh
+    from sqlalchemy.orm import selectinload, joinedload
+    result = await db.execute(
+        select(OpportunityModel)
+        .options(
+            selectinload(OpportunityModel.opportunity_plays)
+            .selectinload(OpportunityPlayModel.stage_instances),
+            selectinload(OpportunityModel.primary_play),
+            selectinload(OpportunityModel.primary_technologies)
+        )
+        .filter(OpportunityModel.id == opp.id)
+    )
+    opp = result.scalars().unique().first()
+    
+    # Handle None values for list fields
+    if opp.team_member_user_ids is None:
+        opp.team_member_user_ids = []
+    
     return opp
+
+@router.patch("/opportunities/{opp_id}/play/{play_id}/stage/{stage_key}", response_model=OpportunityStageInstance)
+async def update_opportunity_stage(
+    opp_id: str, 
+    play_id: str, 
+    stage_key: str, 
+    update_data: StageUpdate, 
+    db: AsyncSession = Depends(get_db)
+):
+    # Find the OpportunityPlay
+    # Note: play_id in URL might be the GTM Play ID (int) or the OpportunityPlay ID (uuid).
+    # The UI typically knows the Play ID. Let's assume it's the GTM Play ID for now as that's what we used in the URL structure design.
+    # However, an opportunity can have multiple instances of the same play? 
+    # For V2, let's assume one instance of a play per opportunity for simplicity, OR we need the OpportunityPlay ID.
+    # Looking at the frontend, we have `activePlayId` which is the GTM Play ID.
+    # But `opportunity.opportunity_plays` has `play_id` (GTM Play ID) and `id` (OpportunityPlay ID).
+    # To be safe and support multiple same-plays, we should probably use OpportunityPlay ID, but the URL says `play_id`.
+    # Let's try to find the OpportunityPlay by (opp_id, play_id).
+    
+    stmt = select(OpportunityPlayModel).filter(
+        OpportunityPlayModel.opportunity_id == opp_id,
+        OpportunityPlayModel.play_id == int(play_id)
+    )
+    result = await db.execute(stmt)
+    opp_play = result.scalars().first()
+    
+    if not opp_play:
+        raise HTTPException(status_code=404, detail="Opportunity Play not found")
+        
+    # Find the Stage Instance
+    # We need to load stage instances
+    await db.refresh(opp_play, attribute_names=['stage_instances'])
+    
+    stage_instance = next((si for si in opp_play.stage_instances if si.play_stage_key == stage_key), None)
+    
+    if not stage_instance:
+        # If it doesn't exist (maybe added to play definition later), create it?
+        # For now, assume it exists as we create them on opp creation.
+        raise HTTPException(status_code=404, detail="Stage Instance not found")
+        
+    # Update fields
+    if update_data.status is not None:
+        stage_instance.status = update_data.status
+    if update_data.summary_note is not None:
+        stage_instance.summary_note = update_data.summary_note
+    if update_data.checklist_item_statuses is not None:
+        # Merge or replace? Let's replace for simplicity, frontend sends full state.
+        # But wait, frontend might send partial updates? 
+        # Pydantic model has it as Optional. If sent, we replace.
+        # Ensure we don't lose existing keys if we want merge behavior, but usually full object replace is safer for sync.
+        # Actually, let's do a merge if it's a dict, to be safe? 
+        # No, let's trust the frontend to send what it wants to persist.
+        # However, JSON columns in SQLA sometimes need explicit reassignment to trigger change detection.
+        current = dict(stage_instance.checklist_item_statuses or {})
+        current.update(update_data.checklist_item_statuses)
+        stage_instance.checklist_item_statuses = current
+        
+    if update_data.custom_checklist_items is not None:
+        stage_instance.custom_checklist_items = update_data.custom_checklist_items
+        
+    if update_data.start_date is not None:
+        stage_instance.start_date = update_data.start_date
+    if update_data.target_date is not None:
+        stage_instance.target_date = update_data.target_date
+    if update_data.completed_date is not None:
+        stage_instance.completed_date = update_data.completed_date
+        
+    await db.commit()
+    await db.refresh(stage_instance)
+    
+    return stage_instance
 @router.post("/plays", response_model=Play)
 async def create_play(play: PlayCreate, db: AsyncSession = Depends(get_db)):
     # Create DB model
@@ -285,7 +411,18 @@ async def create_play(play: PlayCreate, db: AsyncSession = Depends(get_db)):
     
     db.add(db_play)
     await db.commit()
-    await db.refresh(db_play)
+    
+    # Re-fetch with eager loading
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(GTMPlayModel)
+        .options(
+            selectinload(GTMPlayModel.technologies),
+            selectinload(GTMPlayModel.tags)
+        )
+        .filter(GTMPlayModel.id == db_play.id)
+    )
+    db_play = result.scalars().first()
     
     # Return schema
     return Play(

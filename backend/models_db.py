@@ -217,7 +217,7 @@ class OpportunityModel(Base):
     primary_play_id = Column(Integer, ForeignKey('gtm_plays.id'), nullable=True)
     primary_play = relationship("GTMPlayModel")
     
-    opportunity_plays = relationship("OpportunityPlayModel", back_populates="opportunity", cascade="all, delete-orphan")
+    opportunity_plays = relationship("OpportunityPlayModel", back_populates="opportunity", cascade="all, delete-orphan", lazy="selectin")
     primary_technologies = relationship("TechnologyModel", secondary=opportunity_technologies, back_populates="opportunities")
 
 class OpportunityPlayModel(Base):
@@ -235,7 +235,7 @@ class OpportunityPlayModel(Base):
     opportunity = relationship("OpportunityModel", back_populates="opportunity_plays")
     play = relationship("GTMPlayModel")
     
-    stage_instances = relationship("OpportunityStageInstanceModel", back_populates="opportunity_play", cascade="all, delete-orphan")
+    stage_instances = relationship("OpportunityStageInstanceModel", back_populates="opportunity_play", cascade="all, delete-orphan", lazy="selectin")
 
 class OpportunityStageInstanceModel(Base):
     __tablename__ = "opportunity_stage_instances"

@@ -124,6 +124,15 @@ class OpportunityStageInstance(BaseModel):
     class Config:
         from_attributes = True
 
+class StageUpdate(BaseModel):
+    status: Optional[str] = None # 'not_started' | 'in_progress' | 'completed' | 'skipped'
+    summary_note: Optional[str] = None
+    checklist_item_statuses: Optional[Dict[str, str]] = None
+    custom_checklist_items: Optional[List[Dict[str, Any]]] = None
+    start_date: Optional[datetime] = None
+    target_date: Optional[datetime] = None
+    completed_date: Optional[datetime] = None
+
 class OpportunityPlay(BaseModel):
     id: str
     opportunity_id: str
@@ -174,3 +183,6 @@ class OpportunityInput(BaseModel):
     geo: str
     tags: List[str]
     notes: str
+    plays: Optional[List[str]] = []
+    name: Optional[str] = None
+    account_name: Optional[str] = None

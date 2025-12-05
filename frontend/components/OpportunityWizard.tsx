@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Dictionary, OpportunityInput, Play } from '../types';
+import { Dictionary, OpportunityInput, Play, Opportunity } from '../types';
 import { generateOpportunityAnalysis } from '../services/geminiService';
 import { matchPlays } from '../services/dataService';
-import { Loader2, Sparkles, Target, CheckCircle2, ChevronRight, BarChart2 } from 'lucide-react';
+import { Loader2, Sparkles, Target, CheckCircle2, ChevronRight, BarChart2, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface OpportunityWizardProps {
     dictionary: Dictionary;
     plays: Play[];
     onViewPlay: (playId: string) => void;
+    onSave: (opp: Opportunity) => void;
 }
 
-export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary, plays, onViewPlay }) => {
+export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary, plays, onViewPlay, onSave }) => {
     const [step, setStep] = useState<'form' | 'analyzing' | 'results'>('form');
     const [formData, setFormData] = useState<OpportunityInput>({
         sector: '',
@@ -20,10 +21,13 @@ export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary
         technologies: [],
         geo: 'Americas',
         tags: [],
-        notes: ''
+        notes: '',
+        account_name: ''
     });
     const [analysis, setAnalysis] = useState<string>('');
     const [matchedPlays, setMatchedPlays] = useState<Play[]>([]);
+    const [selectedPlayIds, setSelectedPlayIds] = useState<string[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     const handleAnalyze = async () => {
         setStep('analyzing');
@@ -34,7 +38,48 @@ export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary
 
         setAnalysis(geminiResult);
         setMatchedPlays(matches);
+        // Auto-select plays with high match score (> 80)
+        const highMatchIds = matches.filter(p => (p.matchScore || 0) > 80).map(p => p.id);
+        setSelectedPlayIds(highMatchIds);
         setStep('results');
+    };
+
+    const handleSaveOpportunity = async () => {
+        setIsSaving(true);
+        try {
+            // Create the opportunity via API
+            // Note: In a real app we'd import createOpportunity from dataService, 
+            // but for now we'll assume the parent component handles the actual API call 
+            // or we'll add the API call here. 
+            // Given the prompt says "After clicking Save, it should take all the info... create the Opportunity entity...",
+            // I will implement the API call here or assume onSave does it. 
+            // But wait, onSave usually just updates state. Let's look at App.tsx. 
+            // App.tsx has handleSaveNewOpp which calls getOpportunities. 
+            // So we need to call the API here first.
+
+            // We need to import createOpportunity. Let's add it to imports first.
+            const { createOpportunity } = await import('../services/dataService');
+
+            const newOpp = await createOpportunity({
+                ...formData,
+                plays: selectedPlayIds
+            });
+
+            onSave(newOpp);
+        } catch (error) {
+            console.error("Failed to save opportunity", error);
+            alert("Failed to save opportunity. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const togglePlaySelection = (playId: string) => {
+        setSelectedPlayIds(prev =>
+            prev.includes(playId)
+                ? prev.filter(id => id !== playId)
+                : [...prev, playId]
+        );
     };
 
     const toggleTechnology = (tech: string) => {
@@ -69,6 +114,18 @@ export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary
 
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-8 space-y-6">
+
+                        {/* Account Name */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Account Name</label>
+                            <input
+                                type="text"
+                                className="w-full rounded-md border-slate-300 border p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                placeholder="e.g. Acme Corp"
+                                value={formData.account_name || ''}
+                                onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
+                            />
+                        </div>
 
                         {/* Sector & Offering */}
                         <div className="grid grid-cols-2 gap-6">
@@ -154,7 +211,7 @@ export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary
                     <div className="bg-slate-50 px-8 py-5 border-t border-slate-200 flex justify-end">
                         <button
                             onClick={handleAnalyze}
-                            disabled={!formData.sector && !formData.offering}
+                            disabled={!formData.sector && !formData.offering && !formData.account_name}
                             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-md font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                             <Sparkles size={18} />
@@ -198,49 +255,85 @@ export const OpportunityWizard: React.FC<OpportunityWizardProps> = ({ dictionary
             </div>
 
             {/* Right Column: Matched Plays */}
-            <div className="lg:col-span-1 space-y-6">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <CheckCircle2 className="text-green-600" />
-                    Recommended Plays
-                </h3>
+            <div className="lg:col-span-1 flex flex-col h-full">
+                <div className="flex-1 overflow-y-auto pr-2">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+                        <CheckCircle2 className="text-green-600" />
+                        Recommended Plays
+                    </h3>
 
-                {matchedPlays.length === 0 ? (
-                    <div className="p-6 bg-white rounded-lg border border-slate-200 text-center text-slate-500">
-                        No plays found with high relevance. Try adjusting your inputs.
+                    {matchedPlays.length === 0 ? (
+                        <div className="p-6 bg-white rounded-lg border border-slate-200 text-center text-slate-500">
+                            No plays found with high relevance. Try adjusting your inputs.
+                        </div>
+                    ) : (
+                        <div className="space-y-4 pb-20">
+                            {matchedPlays.map(play => {
+                                const isSelected = selectedPlayIds.includes(play.id);
+                                return (
+                                    <div key={play.id} className={`bg-white rounded-lg border shadow-sm transition-all p-4 group relative ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 hover:shadow-md'}`}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className={`text-xs font-bold px-2 py-1 rounded ${(play.matchScore || 0) > 80 ? 'bg-green-100 text-green-700' :
+                                                (play.matchScore || 0) > 50 ? 'bg-amber-100 text-amber-700' :
+                                                    'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                {(play.matchScore || 0)}% Match
+                                            </span>
+                                            <button
+                                                onClick={() => togglePlaySelection(play.id)}
+                                                className={`p-1 rounded-full transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                                title={isSelected ? "Remove from Opportunity" : "Add to Opportunity"}
+                                            >
+                                                {isSelected ? <CheckCircle2 size={16} /> : <Plus size={16} />}
+                                            </button>
+                                        </div>
+                                        <h4 className="font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors pr-8">
+                                            {play.title}
+                                        </h4>
+                                        <p className="text-sm text-slate-600 line-clamp-2 mb-3">
+                                            {play.summary}
+                                        </p>
+                                        <div className="flex flex-wrap gap-1 mb-3">
+                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{play.offering}</span>
+                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{play.sector}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => onViewPlay(play.id)}
+                                            className="w-full flex items-center justify-center gap-1 text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded font-medium transition-colors"
+                                        >
+                                            Open Play <ChevronRight size={14} />
+                                        </button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Bottom Action Bar */}
+            <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-slate-200 p-4 shadow-lg flex justify-between items-center z-50">
+                <div className="flex items-center gap-4">
+                    <div className="text-sm text-slate-500">
+                        <span className="font-bold text-slate-900">{selectedPlayIds.length}</span> plays selected
                     </div>
-                ) : (
-                    <div className="space-y-4">
-                        {matchedPlays.map(play => (
-                            <div key={play.id} className="bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-4 group">
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className={`text-xs font-bold px-2 py-1 rounded ${(play.matchScore || 0) > 80 ? 'bg-green-100 text-green-700' :
-                                        (play.matchScore || 0) > 50 ? 'bg-amber-100 text-amber-700' :
-                                            'bg-slate-100 text-slate-600'
-                                        }`}>
-                                        {(play.matchScore || 0)}% Match
-                                    </span>
-                                    <span className="text-xs text-slate-400">{play.updated_at}</span>
-                                </div>
-                                <h4 className="font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors">
-                                    {play.title}
-                                </h4>
-                                <p className="text-sm text-slate-600 line-clamp-2 mb-3">
-                                    {play.summary}
-                                </p>
-                                <div className="flex flex-wrap gap-1 mb-3">
-                                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{play.offering}</span>
-                                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{play.sector}</span>
-                                </div>
-                                <button
-                                    onClick={() => onViewPlay(play.id)}
-                                    className="w-full flex items-center justify-center gap-1 text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded font-medium transition-colors"
-                                >
-                                    Open Play <ChevronRight size={14} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setStep('form')}
+                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md text-sm font-medium"
+                    >
+                        Back to Edit
+                    </button>
+                    <button
+                        onClick={handleSaveOpportunity}
+                        disabled={isSaving}
+                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-bold shadow-sm flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                        Save Opportunity
+                    </button>
+                </div>
             </div>
         </div>
     );

@@ -74,32 +74,11 @@ export const createPlay = async (playData: Partial<Play>): Promise<Play> => {
   });
 };
 
-export const createOpportunity = async (name: string, account: string, primaryPlayId?: string, inputData?: OpportunityInput): Promise<Opportunity> => {
-  // If inputData is provided, use it to construct the payload for the backend
-  if (inputData) {
-    return fetchApi<Opportunity>('/opportunities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(inputData)
-    });
-  }
-
-  // Fallback for legacy calls (if any) or quick create
-  // We construct a minimal OpportunityInput
-  const payload: OpportunityInput = {
-    offering: "Unknown",
-    stage: "Qualification",
-    technologies: [],
-    geo: "Americas",
-    tags: [],
-    notes: `Created via quick add: ${name}`,
-    sector: "Unknown"
-  };
-
+export const createOpportunity = async (inputData: OpportunityInput): Promise<Opportunity> => {
   return fetchApi<Opportunity>('/opportunities', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(inputData)
   });
 };
 
@@ -292,4 +271,38 @@ export const getStaleAssets = async (): Promise<Asset[]> => {
 export const verifyAsset = async (id: string): Promise<void> => {
   console.log(`Verified asset ${id}`);
   return Promise.resolve();
+};
+
+// --- Opportunity Playbook ---
+
+export const updateOpportunityStage = async (
+  oppId: string,
+  playId: string,
+  stageKey: string,
+  data: {
+    status?: string;
+    summary_note?: string;
+    checklist_item_statuses?: Record<string, string>;
+    custom_checklist_items?: any[];
+    start_date?: string;
+    target_date?: string;
+    completed_date?: string;
+  }
+): Promise<any> => {
+  return fetchApi(`/opportunities/${oppId}/play/${playId}/stage/${stageKey}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+};
+
+export const getUsers = async (): Promise<{ id: string, name: string, avatar: string }[]> => {
+  // Mock users for now
+  return [
+    { id: 'u1', name: 'John Doe', avatar: 'JD' },
+    { id: 'u2', name: 'Sarah Jones', avatar: 'SJ' },
+    { id: 'u3', name: 'Mike Taylor', avatar: 'MT' },
+    { id: 'u4', name: 'Alice Smith', avatar: 'AS' },
+    { id: 'u5', name: 'Bob Brown', avatar: 'BB' },
+  ];
 };
