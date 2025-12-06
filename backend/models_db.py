@@ -237,6 +237,7 @@ class OpportunityPlayModel(Base):
     
     stage_instances = relationship("OpportunityStageInstanceModel", back_populates="opportunity_play", cascade="all, delete-orphan", lazy="selectin")
 
+
 class OpportunityStageInstanceModel(Base):
     __tablename__ = "opportunity_stage_instances"
 
@@ -256,4 +257,12 @@ class OpportunityStageInstanceModel(Base):
     risk_flags = Column(JSON, nullable=True) # List of strings
     
     opportunity_play = relationship("OpportunityPlayModel", back_populates="stage_instances")
+
+class SystemSettingsModel(Base):
+    __tablename__ = "system_settings"
+
+    key = Column(String, primary_key=True, unique=True, index=True)
+    value = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+
 

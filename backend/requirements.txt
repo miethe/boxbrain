@@ -8,3 +8,4 @@ alembic
 python-dotenv
 greenlet
 PyYAML
+boto3

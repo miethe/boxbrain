@@ -18,7 +18,9 @@ import {
     Cloud,
     Layout,
     Plus,
-    ArrowUpRight
+    ArrowUpRight,
+    Edit,
+    Trash2
 } from 'lucide-react';
 import { AssetCard, AssetRow, AssetIcon } from './ui/AssetItem';
 import ReactMarkdown from 'react-markdown';
@@ -208,7 +210,16 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                         </a>
                     </div>
 
-                    <button className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900">
+                    <div className="flex items-center gap-2 border-l border-slate-200 pl-4 ml-4">
+                        <button className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors" title="Edit">
+                            <Edit size={18} />
+                        </button>
+                        <button className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Delete">
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
+
+                    <button className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-l border-slate-200 pl-4 ml-2">
                         <Share2 size={16} /> Share
                     </button>
                 </div>
@@ -240,14 +251,14 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                             key={stage.key}
                                             onClick={() => setActiveStageKey(stage.key)}
                                             className={`w - full flex items - center justify - between px - 3 py - 2.5 text - sm rounded - md transition - all group ${isActive
-                                                    ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200 font-medium'
-                                                    : 'text-slate-600 hover:bg-slate-100'
+                                                ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200 font-medium'
+                                                : 'text-slate-600 hover:bg-slate-100'
                                                 } `}
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w - 5 h - 5 rounded - full flex items - center justify - center text - [10px] border ${status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
-                                                        isActive ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
-                                                            'bg-slate-100 text-slate-400 border-slate-200'
+                                                    isActive ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
+                                                        'bg-slate-100 text-slate-400 border-slate-200'
                                                     } `}>
                                                     {status === 'completed' ? <CheckCircle2 size={12} /> : idx + 1}
                                                 </div>
@@ -273,8 +284,8 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className={`px - 3 py - 1 rounded - full text - xs font - bold uppercase ${activeStageInstance?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                                        activeStageInstance?.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                            'bg-slate-100 text-slate-500'
+                                    activeStageInstance?.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                        'bg-slate-100 text-slate-500'
                                     } `}>
                                     {activeStageInstance?.status.replace('_', ' ')}
                                 </span>
@@ -345,9 +356,9 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-start gap-4">
                                                 <div className={`w - 12 h - 12 rounded - xl flex items - center justify - center flex - shrink - 0 border border - slate - 100 ${asset.kind === 'deck' ? 'bg-orange-50 text-orange-600' :
-                                                        asset.kind === 'coderef' ? 'bg-blue-50 text-blue-600' :
-                                                            asset.kind === 'link' ? 'bg-purple-50 text-purple-600' :
-                                                                'bg-slate-100 text-slate-600'
+                                                    asset.kind === 'coderef' ? 'bg-blue-50 text-blue-600' :
+                                                        asset.kind === 'link' ? 'bg-purple-50 text-purple-600' :
+                                                            'bg-slate-100 text-slate-600'
                                                     } `}>
                                                     <AssetIcon kind={asset.kind} size={24} />
                                                 </div>
