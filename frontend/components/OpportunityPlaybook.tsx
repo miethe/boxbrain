@@ -1,7 +1,7 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Opportunity, Play, Asset } from '../types';
-import { getPlayById, getAssets, getPlayById as fetchPlay, updateOpportunityStage, getUsers } from '../services/dataService';
+import { getPlayById, getAssets, getPlayById as fetchPlay, updateOpportunityStage, getUsers, deleteOpportunity, updateOpportunity, getPlays } from '../services/dataService';
+import { StageNoteStream } from './StageNoteStream';
 import {
     ChevronLeft,
     Share2,
@@ -20,7 +20,9 @@ import {
     Plus,
     ArrowUpRight,
     Edit,
-    Trash2
+    Trash2,
+    X,
+    Search
 } from 'lucide-react';
 import { AssetCard, AssetRow, AssetIcon } from './ui/AssetItem';
 import ReactMarkdown from 'react-markdown';
@@ -45,22 +47,29 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
 
     // Store all plays for the dropdown
     const [availablePlays, setAvailablePlays] = useState<Record<string, Play>>({});
+    const [allPlays, setAllPlays] = useState<Play[]>([]);
+
+    // Task & Team States
+    const [newTaskText, setNewTaskText] = useState('');
+    const [isAddingTask, setIsAddingTask] = useState(false);
+    const [isAddingTeam, setIsAddingTeam] = useState(false);
+    const [isAddingPlay, setIsAddingPlay] = useState(false);
 
     // Fetch play template data
-    React.useEffect(() => {
+    useEffect(() => {
         if (activePlayId) {
             getPlayById(activePlayId).then(setPlayTemplate);
         }
     }, [activePlayId]);
 
-    // Fetch all plays for dropdown
-    React.useEffect(() => {
+    // Fetch all plays for dropdown and catalog
+    useEffect(() => {
         const fetchAllPlays = async () => {
             const playsMap: Record<string, Play> = {};
             for (const op of opportunity.opportunity_plays) {
                 try {
                     const p = await getPlayById(op.play_id);
-                    playsMap[op.play_id] = p;
+                    if (p) playsMap[op.play_id] = p;
                 } catch (e) {
                     console.error(`Failed to load play ${op.play_id} `, e);
                 }
@@ -68,10 +77,11 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
             setAvailablePlays(playsMap);
         };
         fetchAllPlays();
+        getPlays().then(setAllPlays);
     }, [opportunity.opportunity_plays]);
 
     // Fetch users
-    React.useEffect(() => {
+    useEffect(() => {
         getUsers().then(setUsers);
     }, []);
 
@@ -82,7 +92,7 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
     // Fetch assets for this stage/opp
     const [allAssets, setAllAssets] = useState<Asset[]>([]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         getAssets().then(setAllAssets).catch(err => console.error("Failed to load assets", err));
     }, []);
 
@@ -95,30 +105,9 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
         if (!activeOppPlay || !activeStageKey) return;
         try {
             await updateOpportunityStage(opportunity.id, activePlayId, activeStageKey, { status: newStatus });
-            // Optimistic update or refetch? Ideally refetch or update parent state.
-            // For now, let's just force a reload or rely on parent refetch if passed down?
-            // Since props are passed down, we might need a way to refresh the opportunity object.
-            // But for this demo, we might just update local state if we had it, but activeStageInstance comes from props.opportunity.
-            // We need a callback to refresh opportunity!
-            // Assuming parent handles refresh or we just alert for now.
-            // Ideally, onNavigateBack triggers refresh, but here we are inside.
-            // Let's reload the page for now as a simple hack or just assume it works?
-            // Better: Add a refresh callback to props? Or just accept it won't update UI immediately without it.
-            window.location.reload(); // Simple brute force for now to see updates
+            window.location.reload();
         } catch (e) {
             console.error("Failed to update status", e);
-        }
-    };
-
-    const handleNoteBlur = async (e: React.FocusEvent<HTMLTextAreaElement>) => {
-        if (!activeOppPlay || !activeStageKey) return;
-        const note = e.target.value;
-        if (note === activeStageInstance?.summary_note) return;
-
-        try {
-            await updateOpportunityStage(opportunity.id, activePlayId, activeStageKey, { summary_note: note });
-        } catch (e) {
-            console.error("Failed to update note", e);
         }
     };
 
@@ -129,9 +118,82 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
 
         try {
             await updateOpportunityStage(opportunity.id, activePlayId, activeStageKey, { checklist_item_statuses: currentStatuses });
-            window.location.reload(); // Brute force refresh
+            window.location.reload();
         } catch (e) {
             console.error("Failed to update checklist", e);
+        }
+    };
+
+    const handleAddCustomTask = async () => {
+        if (!activeOppPlay || !activeStageKey || !newTaskText.trim()) return;
+        const currentCustom = [...(activeStageInstance?.custom_checklist_items || [])];
+        const newId = `custom-${Date.now()}`;
+        currentCustom.push({ id: newId, text: newTaskText, status: 'todo' });
+
+        try {
+            await updateOpportunityStage(opportunity.id, activePlayId, activeStageKey, { custom_checklist_items: currentCustom });
+            setNewTaskText('');
+            setIsAddingTask(false);
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleToggleCustomTask = async (id: string, checked: boolean) => {
+        if (!activeOppPlay || !activeStageKey) return;
+        const currentCustom = activeStageInstance?.custom_checklist_items ? [...activeStageInstance.custom_checklist_items] : [];
+        const item = currentCustom.find(i => i.id === id);
+        if (item) {
+            item.status = checked ? 'done' : 'todo';
+            try {
+                await updateOpportunityStage(opportunity.id, activePlayId, activeStageKey, { custom_checklist_items: currentCustom });
+                window.location.reload();
+            } catch (e) { console.error(e); }
+        }
+    };
+
+    const handleRemoveCustomTask = async (id: string) => {
+        if (!activeOppPlay || !activeStageKey) return;
+        const currentCustom = (activeStageInstance?.custom_checklist_items || []).filter(i => i.id !== id);
+        try {
+            await updateOpportunityStage(opportunity.id, activePlayId, activeStageKey, { custom_checklist_items: currentCustom });
+            window.location.reload();
+        } catch (e) { console.error(e); }
+    };
+
+    const handleAddTeamMember = async (userId: string) => {
+        const currentMembers = opportunity.team_member_user_ids || [];
+        if (currentMembers.includes(userId)) return;
+        const newMembers = [...currentMembers, userId];
+        try {
+            await updateOpportunity(opportunity.id, { team_member_user_ids: newMembers });
+            setIsAddingTeam(false);
+            window.location.reload();
+        } catch (e) { console.error(e); }
+    };
+
+    const handleAddPlay = async (playId: string) => {
+        const existingPlayIds = opportunity.opportunity_plays.map(op => String(op.play_id));
+        if (existingPlayIds.includes(String(playId))) return;
+
+        try {
+            await updateOpportunity(opportunity.id, {
+                plays: [...existingPlayIds, String(playId)]
+            });
+            setIsAddingPlay(false);
+            window.location.reload();
+        } catch (e) { console.error(e); }
+    };
+
+    const handleDelete = async () => {
+        if (confirm('Are you sure you want to delete this opportunity?')) {
+            try {
+                await deleteOpportunity(opportunity.id);
+                onNavigateBack();
+            } catch (e) {
+                alert('Failed to delete opportunity');
+            }
         }
     };
 
@@ -211,10 +273,18 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                     </div>
 
                     <div className="flex items-center gap-2 border-l border-slate-200 pl-4 ml-4">
-                        <button className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors" title="Edit">
+                        <button
+                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors"
+                            title="Edit"
+                            onClick={() => alert("Edit functionality coming soon")}
+                        >
                             <Edit size={18} />
                         </button>
-                        <button className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Delete">
+                        <button
+                            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                            title="Delete"
+                            onClick={handleDelete}
+                        >
                             <Trash2 size={18} />
                         </button>
                     </div>
@@ -250,13 +320,13 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                         <button
                                             key={stage.key}
                                             onClick={() => setActiveStageKey(stage.key)}
-                                            className={`w - full flex items - center justify - between px - 3 py - 2.5 text - sm rounded - md transition - all group ${isActive
+                                            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-md transition-all group ${isActive
                                                 ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200 font-medium'
                                                 : 'text-slate-600 hover:bg-slate-100'
                                                 } `}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className={`w - 5 h - 5 rounded - full flex items - center justify - center text - [10px] border ${status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] border ${status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
                                                     isActive ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
                                                         'bg-slate-100 text-slate-400 border-slate-200'
                                                     } `}>
@@ -283,7 +353,7 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                 <p className="text-slate-500">{activeStageDef?.objective}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className={`px - 3 py - 1 rounded - full text - xs font - bold uppercase ${activeStageInstance?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${activeStageInstance?.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
                                     activeStageInstance?.status === 'completed' ? 'bg-green-100 text-green-700' :
                                         'bg-slate-100 text-slate-500'
                                     } `}>
@@ -329,10 +399,42 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                         <span className="text-sm text-slate-700">{item}</span>
                                     </div>
                                 ))}
+                                {(activeStageInstance?.custom_checklist_items || []).map((item) => (
+                                    <div key={item.id} className="p-3 flex items-start gap-3 hover:bg-slate-50 transition-colors group">
+                                        <input
+                                            type="checkbox"
+                                            className="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            checked={item.status === 'done'}
+                                            onChange={(e) => handleToggleCustomTask(item.id, e.target.checked)}
+                                        />
+                                        <span className="text-sm text-slate-700 flex-1">{item.text}</span>
+                                        <button onClick={() => handleRemoveCustomTask(item.id)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
                                 <div className="p-2">
-                                    <button className="text-sm text-slate-500 hover:text-indigo-600 px-2 py-1 rounded flex items-center gap-2">
-                                        <Plus size={14} /> Add task
-                                    </button>
+                                    {isAddingTask ? (
+                                        <div className="flex items-center gap-2 px-2">
+                                            <input
+                                                autoFocus
+                                                className="flex-1 text-sm border border-slate-300 rounded px-2 py-1 outline-none focus:border-indigo-500"
+                                                placeholder="Enter task..."
+                                                value={newTaskText}
+                                                onChange={e => setNewTaskText(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleAddCustomTask()}
+                                            />
+                                            <button onClick={handleAddCustomTask} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Add</button>
+                                            <button onClick={() => setIsAddingTask(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setIsAddingTask(true)}
+                                            className="text-sm text-slate-500 hover:text-indigo-600 px-2 py-1 rounded flex items-center gap-2"
+                                        >
+                                            <Plus size={14} /> Add task
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </section>
@@ -355,7 +457,7 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                     >
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-start gap-4">
-                                                <div className={`w - 12 h - 12 rounded - xl flex items - center justify - center flex - shrink - 0 border border - slate - 100 ${asset.kind === 'deck' ? 'bg-orange-50 text-orange-600' :
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border border-slate-100 ${asset.kind === 'deck' ? 'bg-orange-50 text-orange-600' :
                                                     asset.kind === 'coderef' ? 'bg-blue-50 text-blue-600' :
                                                         asset.kind === 'link' ? 'bg-purple-50 text-purple-600' :
                                                             'bg-slate-100 text-slate-600'
@@ -406,12 +508,13 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
                                 <MessageSquare size={16} className="text-slate-400" /> Stage Notes
                             </h3>
-                            <textarea
-                                className="w-full h-32 p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
-                                placeholder={`Capture notes, decisions, and outcomes for the ${activeStageDef?.label} stage...`}
-                                defaultValue={activeStageInstance?.summary_note || ''}
-                                onBlur={handleNoteBlur}
-                            ></textarea>
+                            {activeStageInstance && (
+                                <StageNoteStream
+                                    stageInstanceId={activeStageInstance.id}
+                                    users={users}
+                                    currentUser={users[0]} // Mock current user
+                                />
+                            )}
                         </section>
 
                     </div>
@@ -423,15 +526,43 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                     {/* Team */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Team</h4>
-                        <div className="flex -space-x-2 overflow-hidden mb-2">
-                            {users.slice(0, 3).map(u => (
-                                <div key={u.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-slate-300 flex items-center justify-center text-xs font-bold" title={u.name}>
-                                    {u.avatar}
-                                </div>
-                            ))}
-                            <button className="h-8 w-8 rounded-full ring-2 ring-white bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600">
-                                <Plus size={14} />
-                            </button>
+                        <div className="flex -space-x-2 overflow-hidden mb-2 items-center">
+                            {(opportunity.team_member_user_ids || []).map(uid => {
+                                const u = users.find(user => user.id === uid);
+                                if (!u) return null;
+                                return (
+                                    <div key={u.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-slate-300 flex items-center justify-center text-xs font-bold shrink-0" title={u.name}>
+                                        {u.avatar}
+                                    </div>
+                                );
+                            })}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsAddingTeam(!isAddingTeam)}
+                                    className="h-8 w-8 rounded-full ring-2 ring-white bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 ml-2"
+                                >
+                                    <Plus size={14} />
+                                </button>
+                                {isAddingTeam && (
+                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 shadow-xl rounded-lg z-20 overflow-hidden">
+                                        <div className="max-h-48 overflow-y-auto">
+                                            {users.filter(u => !(opportunity.team_member_user_ids || []).includes(u.id)).map(u => (
+                                                <button
+                                                    key={u.id}
+                                                    onClick={() => handleAddTeamMember(u.id)}
+                                                    className="w-full text-left px-3 py-2 hover:bg-indigo-50 flex items-center gap-2"
+                                                >
+                                                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">{u.avatar}</div>
+                                                    <span className="text-sm text-slate-700">{u.name}</span>
+                                                </button>
+                                            ))}
+                                            {users.filter(u => !(opportunity.team_member_user_ids || []).includes(u.id)).length === 0 && (
+                                                <div className="p-3 text-xs text-slate-400 text-center">No more users</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -454,13 +585,37 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                     <div>
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">You might also need</h4>
                         <div className="space-y-3">
-                            <div className="bg-white border border-slate-200 rounded p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="text-xs font-bold text-slate-700">Security Audit</span>
-                                    <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1 rounded">85%</span>
-                                </div>
-                                <p className="text-xs text-slate-500 line-clamp-2">Standard security review for cloud migrations.</p>
-                            </div>
+                            {/* Recommend plays based on technology/sector? For now, just show unselected plays */}
+                            {allPlays
+                                .filter(p => !opportunity.opportunity_plays.some(op => String(op.play_id) === String(p.id)))
+                                .slice(0, 3)
+                                .map(play => (
+                                    <div key={play.id} className="bg-white border border-slate-200 rounded p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="text-xs font-bold text-slate-700">{play.title}</span>
+                                            {/* Match Score Mock */}
+                                            <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1 rounded">Match</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 line-clamp-2">{play.summary}</p>
+                                        <button
+                                            onClick={() => handleAddPlay(String(play.id))}
+                                            className="absolute top-2 right-2 bg-indigo-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Add Play"
+                                        >
+                                            <Plus size={12} />
+                                        </button>
+                                    </div>
+                                ))
+                            }
+                            {allPlays.length === 0 && (
+                                <div className="text-xs text-slate-400 italic">No recommendations available.</div>
+                            )}
+                            <button
+                                onClick={() => alert("Full catalog browser coming soon")}
+                                className="w-full py-2 text-xs text-indigo-600 font-medium border border-dashed border-indigo-200 rounded hover:bg-indigo-50 flex items-center justify-center gap-1"
+                            >
+                                <Plus size={12} /> Browse Play Catalog
+                            </button>
                         </div>
                     </div>
 

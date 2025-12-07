@@ -257,6 +257,23 @@ class OpportunityStageInstanceModel(Base):
     risk_flags = Column(JSON, nullable=True) # List of strings
     
     opportunity_play = relationship("OpportunityPlayModel", back_populates="stage_instances")
+    
+    notes = relationship("StageNoteModel", back_populates="stage_instance", cascade="all, delete-orphan", lazy="selectin")
+
+class StageNoteModel(Base):
+    __tablename__ = "stage_notes"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    stage_instance_id = Column(String, ForeignKey('opportunity_stage_instances.id'), nullable=False)
+    
+    content = Column(Text, nullable=False)
+    is_private = Column(Boolean, default=False)
+    author_id = Column(String, nullable=True) # User ID
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+    
+    stage_instance = relationship("OpportunityStageInstanceModel", back_populates="notes")
 
 class SystemSettingsModel(Base):
     __tablename__ = "system_settings"

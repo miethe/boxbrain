@@ -108,6 +108,24 @@ class IntegrationLink(BaseModel):
     url: str
     notes: Optional[str] = None
 
+class StageNote(BaseModel):
+    id: str
+    stage_instance_id: str
+    content: str
+    is_private: bool
+    author_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class StageNoteCreate(BaseModel):
+    stage_instance_id: str
+    content: str
+    is_private: bool = False
+    author_id: Optional[str] = None
+
 class OpportunityStageInstance(BaseModel):
     id: str
     opportunity_play_id: str
@@ -120,6 +138,7 @@ class OpportunityStageInstance(BaseModel):
     checklist_item_statuses: Optional[Dict[str, str]] = {}
     custom_checklist_items: Optional[List[Dict[str, Any]]] = []
     risk_flags: Optional[List[str]] = []
+    notes: List[StageNote] = []
     
     class Config:
         from_attributes = True
@@ -186,3 +205,4 @@ class OpportunityInput(BaseModel):
     plays: Optional[List[str]] = []
     name: Optional[str] = None
     account_name: Optional[str] = None
+    team_member_user_ids: Optional[List[str]] = []

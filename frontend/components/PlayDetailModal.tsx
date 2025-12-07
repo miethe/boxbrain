@@ -5,7 +5,8 @@ import {
   getPlayHistory,
   getPlayAssets,
   getPlayCollections,
-  getRelatedPlays
+  getRelatedPlays,
+  deletePlay
 } from '../services/dataService';
 import {
   MessageSquare,
@@ -49,10 +50,29 @@ export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictiona
     <div className="flex flex-col h-full bg-slate-50 relative">
       {/* Header Actions */}
       <div className="absolute top-4 right-14 flex items-center gap-2 z-10">
-        <button className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors" title="Edit">
+        <button
+          className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors"
+          title="Edit"
+          onClick={() => alert("Edit functionality coming soon")}
+        >
           <Edit size={20} />
         </button>
-        <button className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Delete">
+        <button
+          className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+          title="Delete"
+          onClick={async () => {
+            if (confirm('Are you sure you want to delete this play?')) {
+              try {
+                await deletePlay(play.id);
+                onClose();
+                // Ideally trigger a refresh of the parent list here
+                window.location.reload();
+              } catch (e) {
+                alert('Failed to delete play');
+              }
+            }
+          }}
+        >
           <Trash2 size={20} />
         </button>
       </div>
@@ -138,6 +158,17 @@ export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictiona
               </div>
 
               <div className="border-t border-slate-200 pt-4">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Sales Stages</h4>
+                <div className="flex flex-wrap gap-2">
+                  {play.stage_scope.map(s => (
+                    <span key={s} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-50 text-green-700 border border-green-100 text-xs font-medium">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Technologies</h4>
                 <div className="flex flex-wrap gap-2">
                   {play.technologies.map(t => (
@@ -198,9 +229,7 @@ const OverviewTab: React.FC<{ play: Play }> = ({ play }) => {
       <section>
         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3">Description</h3>
         <p className="text-slate-700 leading-relaxed text-lg">{play.summary}</p>
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-100 rounded-md text-sm text-yellow-800">
-          <strong>Internal Note:</strong> This play is currently being updated for FY25. Please double check pricing assets.
-        </div>
+
       </section>
     </div>
   );

@@ -112,6 +112,16 @@ export interface IntegrationLink {
   notes?: string;
 }
 
+export interface StageNote {
+  id: string;
+  stage_instance_id: string;
+  content: string;
+  is_private: boolean;
+  author_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface OpportunityStageInstance {
   id: string;
   opportunity_play_id: string;
@@ -124,6 +134,7 @@ export interface OpportunityStageInstance {
   checklist_item_statuses: Record<string, 'todo' | 'done' | 'na'>;
   custom_checklist_items?: { id: string; text: string; status: 'todo' | 'done' }[];
   risk_flags?: string[];
+  notes?: StageNote[];
 }
 
 export interface OpportunityPlay {

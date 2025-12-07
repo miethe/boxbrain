@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dictionary, Play } from '../types';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
-import { createPlay, addDictionaryOption } from '../services/dataService';
+import { createPlay, addDictionaryOption, updatePlay } from '../services/dataService';
 import { MultiSelect } from './Common';
 import { CollapsibleSection } from './ui/CollapsibleSection';
 
@@ -9,9 +9,10 @@ interface AddPlayModalProps {
     dictionary: Dictionary;
     onClose: () => void;
     onSave: (play: Play) => void;
+    initialData?: Play;
 }
 
-export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose, onSave }) => {
+export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose, onSave, initialData }) => {
     const [formData, setFormData] = useState<Partial<Play>>({
         title: '',
         summary: '',
@@ -35,18 +36,40 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
         }
     }, [dictionary.technologies]);
 
+    // Pre-fill data if editing
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                title: initialData.title || '',
+                summary: initialData.summary || '',
+                offering: initialData.offering || '',
+                technologies: initialData.technologies || [],
+                stage_scope: initialData.stage_scope || [],
+                sector: initialData.sector || 'Cross-sector',
+                geo: initialData.geo || 'Americas',
+                tags: initialData.tags || [],
+                owners: initialData.owners || []
+            });
+        }
+    }, [initialData]);
+
     const handleSave = async () => {
         if (!formData.title || !formData.offering) return;
 
         setIsSaving(true);
         try {
-            // @ts-ignore - createPlay expects PlayCreate but we are passing Partial<Play>
-            const newPlay = await createPlay(formData);
-            onSave(newPlay);
+            let savedPlay: Play;
+            if (initialData) {
+                savedPlay = await updatePlay(initialData.id as string, formData);
+            } else {
+                // @ts-ignore - createPlay expects PlayCreate but we are passing Partial<Play>
+                savedPlay = await createPlay(formData);
+            }
+            onSave(savedPlay);
             onClose();
         } catch (error) {
-            console.error("Failed to create play", error);
-            alert("Failed to create play");
+            console.error("Failed to save play", error);
+            alert("Failed to save play");
         } finally {
             setIsSaving(false);
         }
@@ -145,7 +168,7 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
     return (
         <div className="flex flex-col h-full bg-slate-50 max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-slate-200 bg-white flex-shrink-0">
-                <h2 className="text-xl font-bold text-slate-900">Create New Play</h2>
+                <h2 className="text-xl font-bold text-slate-900">{initialData ? 'Edit Play' : 'Create New Play'}</h2>
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
                     <X size={24} />
                 </button>
@@ -334,7 +357,7 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
                     disabled={!formData.title || !formData.offering || isSaving}
                     className="px-5 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                    <Save size={18} /> {isSaving ? 'Creating...' : 'Create Play'}
+                    <Save size={18} /> {isSaving ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Play')}
                 </button>
             </div>
         </div>

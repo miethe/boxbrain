@@ -90,6 +90,60 @@ async def create_asset_entry(
     )
     return result.scalars().first()
 
+async def update_asset_entry(
+    db: AsyncSession,
+    asset_id: str,
+    metadata: PydanticAssetMetadata,
+    file: UploadFile = None
+) -> AssetModel:
+    result = await db.execute(
+        select(AssetModel)
+        .options(selectinload(AssetModel.metadata_entry), selectinload(AssetModel.tags))
+        .where(AssetModel.id == asset_id)
+    )
+    db_asset = result.scalars().first()
+    
+    if not db_asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    # Update File if provided
+    if file:
+        relative_path = await save_asset_file(file, asset_id)
+        db_asset.original_filename = file.filename
+        db_asset.file_path = relative_path
+        db_asset.mime_type = file.content_type
+        if file.size:
+             db_asset.size_bytes = file.size
+             
+    # Update Tags
+    tags = []
+    for tag_name in metadata.tags:
+        result = await db.execute(select(TagModel).where(TagModel.name == tag_name))
+        tag = result.scalars().first()
+        if not tag:
+            tag = TagModel(name=tag_name)
+            db.add(tag)
+        tags.append(tag)
+    db_asset.tags = tags
+    
+    # Update Metadata
+    if db_asset.metadata_entry:
+         db_asset.metadata_entry.title = metadata.title
+         db_asset.metadata_entry.summary = metadata.summary
+         db_asset.metadata_entry.author = metadata.author
+         db_asset.metadata_entry.type = metadata.type.value
+         db_asset.metadata_entry.category = metadata.category.value
+         db_asset.metadata_entry.confidentiality = metadata.confidentiality.value
+    
+    await db.commit()
+    
+    result = await db.execute(
+        select(AssetModel)
+        .options(selectinload(AssetModel.metadata_entry), selectinload(AssetModel.tags))
+        .where(AssetModel.id == asset_id)
+    )
+    return result.scalars().first()
+
 async def get_asset_path(asset_id: str, db: AsyncSession) -> Path:
     result = await db.execute(select(AssetModel).where(AssetModel.id == asset_id))
     asset = result.scalars().first()

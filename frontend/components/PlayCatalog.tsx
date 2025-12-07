@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Play, Dictionary } from '../types';
-import { Search, Filter, Plus, LayoutGrid, List, ArrowUpDown, FolderOpen, Cpu } from 'lucide-react';
+import { Search, Filter, Plus, LayoutGrid, List, ArrowUpDown, FolderOpen, Cpu, Edit2 } from 'lucide-react';
 import { createOpportunity } from '../services/dataService';
 
 interface PlayCatalogProps {
@@ -9,13 +9,14 @@ interface PlayCatalogProps {
     onViewPlay: (playId: string) => void;
     onAddToOpportunity: (oppId: string) => void; // Navigates to new opp
     onAddPlay: () => void;
+    onEditPlay?: (play: Play) => void;
 }
 
 type GroupBy = 'none' | 'offering' | 'sector' | 'stage';
 type ViewMode = 'grid' | 'list';
 type SortMode = 'title_asc' | 'title_desc' | 'match_score';
 
-export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onViewPlay, onAddToOpportunity, onAddPlay }) => {
+export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onViewPlay, onAddToOpportunity, onAddPlay, onEditPlay }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [groupBy, setGroupBy] = useState<GroupBy>('none');
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -230,7 +231,21 @@ export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onV
                                                     </span>
                                                 )}
                                             </div>
-                                            <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">{play.title}</h3>
+                                            <div className="flex justify-between items-start mb-2 group-hover/edit relative">
+                                                <h3 className="text-lg font-bold text-slate-900 line-clamp-2 pr-6">{play.title}</h3>
+                                                {onEditPlay && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onEditPlay(play);
+                                                        }}
+                                                        className="absolute right-0 top-0 p-1 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Edit Play"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                             <p className="text-sm text-slate-500 line-clamp-3 mb-4">{play.summary}</p>
 
                                             <div className="flex flex-wrap gap-1 mb-4">
@@ -245,8 +260,11 @@ export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onV
                                             </div>
                                         </div>
                                         <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                                            <span className="text-xs text-slate-500 font-medium">
-                                                {play.stages?.length || 0} Stages
+                                            <span
+                                                className="text-xs text-slate-500 font-medium cursor-help border-b border-dotted border-slate-300"
+                                                title={play.stage_scope?.join(', ')}
+                                            >
+                                                {play.stage_scope?.length || 0} Stages
                                             </span>
                                             <button
                                                 onClick={(e) => handleStartCreateOpp(e, play)}
@@ -280,11 +298,25 @@ export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onV
                                         className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex items-center gap-4"
                                     >
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="text-base font-bold text-slate-900">{play.title}</h3>
-                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wide">
-                                                    {play.offering}
-                                                </span>
+                                            <div className="flex items-center gap-2 mb-1 justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-base font-bold text-slate-900">{play.title}</h3>
+                                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wide">
+                                                        {play.offering}
+                                                    </span>
+                                                </div>
+                                                {onEditPlay && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onEditPlay(play);
+                                                        }}
+                                                        className="p-1 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Edit Play"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                             <p className="text-sm text-slate-500 line-clamp-1">{play.summary}</p>
                                         </div>
@@ -308,8 +340,9 @@ export const PlayCatalog: React.FC<PlayCatalogProps> = ({ plays, dictionary, onV
                             </div>
                         )}
                     </div>
-                ))}
-            </div>
-        </div>
+                ))
+                }
+            </div >
+        </div >
     );
 };

@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { Opportunity } from '../types';
-import { Search, Filter, Plus, LayoutGrid, List, ArrowUpDown, Briefcase, Activity } from 'lucide-react';
+import { Search, Filter, Plus, LayoutGrid, List, ArrowUpDown, Briefcase, Activity, Edit2 } from 'lucide-react';
 
 interface OpportunityBoardProps {
     opportunities: Opportunity[];
     onSelectOpportunity: (id: string) => void;
     onAddOpportunity: () => void;
+    onEditOpportunity?: (opp: Opportunity) => void;
 }
 
 type ViewMode = 'grid' | 'list';
 type SortMode = 'name_asc' | 'name_desc' | 'date_desc';
 type GroupBy = 'none' | 'stage';
 
-export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunities, onSelectOpportunity, onAddOpportunity }) => {
+export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunities, onSelectOpportunity, onAddOpportunity, onEditOpportunity }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [sortMode, setSortMode] = useState<SortMode>('date_desc');
@@ -164,7 +165,7 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                                     <div
                                         key={opp.id}
                                         onClick={() => onSelectOpportunity(opp.id)}
-                                        className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer p-5 flex flex-col"
+                                        className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer p-5 flex flex-col relative group/card"
                                     >
                                         <div className="flex justify-between items-start mb-3">
                                             <div className="flex items-center gap-2">
@@ -177,12 +178,25 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                                                 </div>
                                             </div>
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${opp.health === 'green' ? 'bg-green-100 text-green-700' :
-                                                    opp.health === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-red-100 text-red-700'
+                                                opp.health === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
                                                 }`}>
                                                 {opp.health}
                                             </span>
                                         </div>
+
+                                        {onEditOpportunity && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onEditOpportunity(opp);
+                                                }}
+                                                className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded opacity-0 group-hover/card group-hover:opacity-100 transition-all z-10"
+                                                title="Edit Opportunity"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                        )}
 
                                         <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center text-sm">
                                             <span className="text-slate-600 font-medium">{opp.sales_stage}</span>
@@ -210,7 +224,7 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                                     <div
                                         key={opp.id}
                                         onClick={() => onSelectOpportunity(opp.id)}
-                                        className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between"
+                                        className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between group"
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
@@ -227,14 +241,26 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                                                 {opp.sales_stage}
                                             </span>
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${opp.health === 'green' ? 'bg-green-100 text-green-700' :
-                                                    opp.health === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-red-100 text-red-700'
+                                                opp.health === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
                                                 }`}>
                                                 {opp.health}
                                             </span>
                                             <span className="text-sm text-slate-400 w-24 text-right">
                                                 {new Date(opp.updated_at || '').toLocaleDateString()}
                                             </span>
+                                            {onEditOpportunity && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onEditOpportunity(opp);
+                                                    }}
+                                                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors group-hover:opacity-100 opacity-0"
+                                                    title="Edit Opportunity"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

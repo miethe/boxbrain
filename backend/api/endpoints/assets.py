@@ -77,3 +77,37 @@ async def list_assets(skip: int = 0, limit: int = 100, db: AsyncSession = Depend
 async def get_asset_file(asset_id: str, db: AsyncSession = Depends(get_db)):
     file_path = await asset_manager.get_asset_path(asset_id, db)
     return FileResponse(file_path)
+
+@router.put("/{asset_id}", response_model=AssetMetadata)
+async def update_asset(
+    asset_id: str,
+    file: UploadFile = File(None),
+    metadata_json: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        metadata_dict = json.loads(metadata_json)
+        # Ensure ID matches
+        metadata_dict['id'] = asset_id
+        metadata = AssetMetadata(**metadata_dict)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in metadata_json")
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
+
+    # Call the manager to update
+    db_asset = await asset_manager.update_asset_entry(db, asset_id, metadata, file)
+    
+    return AssetMetadata(
+        id=db_asset.id,
+        title=db_asset.metadata_entry.title,
+        type=db_asset.metadata_entry.type,
+        category=db_asset.metadata_entry.category,
+        summary=db_asset.metadata_entry.summary,
+        author=db_asset.metadata_entry.author,
+        confidentiality=db_asset.metadata_entry.confidentiality,
+        tags=[tag.name for tag in db_asset.tags],
+        url=storage.get_url(db_asset.file_path),
+        mime_type=db_asset.mime_type
+    )
+

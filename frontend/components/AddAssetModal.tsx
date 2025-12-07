@@ -13,11 +13,12 @@ interface AddAssetModalProps {
     onClose: () => void;
     onSave: (asset: Asset) => void;
     onAdvancedMode: () => void;
+    initialData?: Asset;
 }
 
 type ContentType = 'file' | 'link' | 'capture';
 
-export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClose, onSave, onAdvancedMode }) => {
+export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClose, onSave, onAdvancedMode, initialData }) => {
     const [contentType, setContentType] = useState<ContentType>('file');
     const [formData, setFormData] = useState<Partial<Asset>>({
         title: '',
@@ -55,6 +56,38 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClos
             }
         }
     }, [formData.title]);
+
+    // Pre-fill data if editing
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                title: initialData.title || '',
+                description: initialData.description || '',
+                kind: initialData.kind || 'deck',
+                purpose: initialData.purpose || '',
+                default_stage: 'Discovery', // Default if missing
+                technologies: initialData.technologies || [],
+                tags: initialData.tags || [],
+                offerings: initialData.offerings || [],
+                links: initialData.links || [],
+                linked_play_ids: [], // Would need to fetch relationships if not in Asset object
+                linked_opportunity_ids: [],
+                linked_asset_ids: []
+            });
+
+            if (initialData.kind === 'link' && initialData.uri) {
+                setContentType('link');
+                setLinkUrl(initialData.uri);
+            } else if (initialData.kind === 'doc' && (initialData as any).content) {
+                setContentType('capture');
+                setCaptureText((initialData as any).content);
+            } else {
+                setContentType('file');
+                // Cannot set 'file' object from URL easily, so we leave it null.
+                // Logic needs to handle "keep existing file".
+            }
+        }
+    }, [initialData]);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
@@ -129,9 +162,12 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClos
             // router.include_router(assets.router, prefix="/assets", tags=["assets"]) matches /api/assets
             // The existing `createAsset` in dataService.ts likely posts to `/api/v2/assets` or checks logic.
 
-            // For now, let's call the NEW endpoint we validated in backend/api/endpoints/assets.py: POST /api/assets/
-            const response = await fetch('/api/assets/', {
-                method: 'POST',
+            // Determine endpoint and method
+            const url = initialData ? `/api/assets/${initialData.id}` : '/api/assets/';
+            const method = initialData ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 body: formDataObj
             });
 
@@ -298,7 +334,7 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClos
     return (
         <div className="flex flex-col h-full bg-slate-50 max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-slate-200 bg-white flex-shrink-0">
-                <h2 className="text-xl font-bold text-slate-900">Add New Asset</h2>
+                <h2 className="text-xl font-bold text-slate-900">{initialData ? 'Edit Asset' : 'Add New Asset'}</h2>
                 <div className="flex items-center gap-2">
                     <button onClick={onAdvancedMode} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-3 py-2 rounded hover:bg-indigo-50 transition-colors">
                         <Maximize2 size={16} /> Advanced Add
@@ -576,27 +612,34 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClos
 
                             <div className="min-h-[150px]">
                                 {contentType === 'file' && (
-                                    <div
-                                        {...getRootProps()}
-                                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer relative ${isDragActive ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
-                                    >
-                                        <input {...getInputProps()} />
-                                        <Upload className={`mx-auto mb-3 ${isDragActive ? 'text-indigo-500' : 'text-slate-400'}`} size={32} />
-                                        <div className="text-sm text-slate-600 font-medium">
-                                            {file ? file.name : "Drag and drop or click to upload"}
+                                    <>
+                                        <div
+                                            {...getRootProps()}
+                                            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer relative ${isDragActive ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}
+                                        >
+                                            <input {...getInputProps()} />
+                                            <Upload className={`mx-auto mb-3 ${isDragActive ? 'text-indigo-500' : 'text-slate-400'}`} size={32} />
+                                            <div className="text-sm text-slate-600 font-medium">
+                                                {file ? file.name : "Drag and drop or click to upload"}
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-1">
+                                                {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "PPTX, PDF, DOCX, PNG (Max 50MB)"}
+                                            </div>
+                                            {file && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                                                    className="mt-4 text-xs text-red-500 hover:text-red-700 font-medium"
+                                                >
+                                                    Remove File
+                                                </button>
+                                            )}
                                         </div>
-                                        <div className="text-xs text-slate-400 mt-1">
-                                            {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "PPTX, PDF, DOCX, PNG (Max 50MB)"}
-                                        </div>
-                                        {file && (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                                                className="mt-4 text-xs text-red-500 hover:text-red-700 font-medium"
-                                            >
-                                                Remove File
-                                            </button>
+                                        {initialData && !file && (
+                                            <div className="text-center text-xs text-slate-500 mt-2">
+                                                Current file will be kept if no new file is uploaded.
+                                            </div>
                                         )}
-                                    </div>
+                                    </>
                                 )}
 
                                 {contentType === 'link' && (
@@ -640,7 +683,7 @@ export const AddAssetModal: React.FC<AddAssetModalProps> = ({ dictionary, onClos
                     disabled={!formData.title || isSaving}
                     className="px-5 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                    {isSaving ? 'Creating...' : 'Create Asset'}
+                    {isSaving ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Asset')}
                 </button>
             </div>
         </div>

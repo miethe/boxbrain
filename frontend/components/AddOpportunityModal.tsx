@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dictionary, OpportunityInput } from '../types';
+import { Dictionary, OpportunityInput, Opportunity } from '../types';
 import { X, Save, Briefcase, Plus } from 'lucide-react';
-import { createOpportunity, addDictionaryOption } from '../services/dataService';
+import { createOpportunity, addDictionaryOption, updateOpportunity } from '../services/dataService';
 import { MultiSelect } from './Common';
 import { CollapsibleSection } from './ui/CollapsibleSection';
 
 interface AddOpportunityModalProps {
     dictionary: Dictionary;
     onClose: () => void;
-    onSave: (opp: any) => void;
+    onSave: (opp: Opportunity) => void;
+    initialData?: Opportunity;
 }
 
-export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictionary, onClose, onSave }) => {
+export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictionary, onClose, onSave, initialData }) => {
     const [formData, setFormData] = useState<OpportunityInput>({
         sector: '',
         offering: '',
@@ -34,21 +35,46 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
         }
     }, [dictionary.technologies]);
 
+    // Pre-fill data if editing
+    useEffect(() => {
+        if (initialData) {
+            setAccountName(initialData.account_name);
+            setFormData({
+                sector: initialData.industry || '',
+                // @ts-ignore - offering might not be persisted in Opportunity model yet
+                offering: (initialData as any).offering || '',
+                stage: initialData.sales_stage || 'Discovery',
+                technologies: initialData.primary_technology_ids || [],
+                geo: initialData.region || 'Americas',
+                tags: initialData.tags || [],
+                notes: initialData.problem_statement || ''
+            });
+        }
+    }, [initialData]);
+
     const handleSave = async () => {
         if (!accountName || !formData.offering) return;
 
         setIsSaving(true);
         try {
-            const newOpp = await createOpportunity({
+            let savedOpp: Opportunity;
+            const payload = {
                 ...formData,
                 name: `${formData.offering} for ${accountName}`,
                 account_name: accountName
-            });
-            onSave(newOpp);
+            };
+
+            if (initialData) {
+                savedOpp = await updateOpportunity(initialData.id, payload);
+            } else {
+                // @ts-ignore
+                savedOpp = await createOpportunity(payload);
+            }
+            onSave(savedOpp);
             onClose();
         } catch (error) {
             console.error("Failed to create opportunity", error);
-            alert("Failed to create opportunity");
+            alert("Failed to save opportunity");
         } finally {
             setIsSaving(false);
         }
@@ -148,7 +174,7 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
                     <div className="bg-indigo-100 p-2 rounded-full text-indigo-600">
                         <Briefcase size={24} />
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900">New Opportunity</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{initialData ? 'Edit Opportunity' : 'New Opportunity'}</h2>
                 </div>
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
                     <X size={24} />
@@ -316,7 +342,7 @@ export const AddOpportunityModal: React.FC<AddOpportunityModalProps> = ({ dictio
                     disabled={!accountName || !formData.offering || isSaving}
                     className="px-5 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                    <Save size={18} /> {isSaving ? 'Creating...' : 'Create Opportunity'}
+                    <Save size={18} /> {isSaving ? (initialData ? 'Saving...' : 'Creating...') : (initialData ? 'Save Changes' : 'Create Opportunity')}
                 </button>
             </div>
         </div>

@@ -54,6 +54,11 @@ export default function App() {
   const [isAddPlayModalOpen, setIsAddPlayModalOpen] = useState(false);
   const [isAddOppModalOpen, setIsAddOppModalOpen] = useState(false);
 
+  // Edit State
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [editingPlay, setEditingPlay] = useState<Play | null>(null);
+  const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null);
+
   // Opportunity Selection
   const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
 
@@ -124,11 +129,18 @@ export default function App() {
 
   // Add Asset Handlers
   const handleOpenAddAssetModal = () => {
+    setEditingAsset(null); // Ensure clean state
+    setIsAddAssetModalOpen(true);
+  };
+
+  const handleEditAsset = (asset: Asset) => {
+    setEditingAsset(asset);
     setIsAddAssetModalOpen(true);
   };
 
   const handleCloseAddAssetModal = () => {
     setIsAddAssetModalOpen(false);
+    setEditingAsset(null);
   };
 
   const handleSaveNewAsset = async (newAsset: Asset) => {
@@ -156,7 +168,13 @@ export default function App() {
     const updatedPlays = await getPlays();
     setPlays(updatedPlays);
     setIsAddPlayModalOpen(false);
+    setEditingPlay(null);
     handleViewPlay(newPlay.id as string);
+  };
+
+  const handleEditPlay = (play: Play) => {
+    setEditingPlay(play);
+    setIsAddPlayModalOpen(true);
   };
 
   // Add Opportunity Handlers
@@ -164,7 +182,13 @@ export default function App() {
     const updatedOpps = await getOpportunities();
     setOpportunities(updatedOpps);
     setIsAddOppModalOpen(false);
+    setEditingOpportunity(null);
     handleSelectOpportunity(newOpp.id);
+  };
+
+  const handleEditOpportunity = (opp: Opportunity) => {
+    setEditingOpportunity(opp);
+    setIsAddOppModalOpen(true);
   };
 
   const selectedPlay = selectedPlayId ? plays.find(p => p.id === selectedPlayId) : null;
@@ -188,15 +212,21 @@ export default function App() {
           dictionary={dictionary}
           onViewPlay={handleViewPlay}
           onAddToOpportunity={handleAddToOpportunity}
-          onAddPlay={() => setIsAddPlayModalOpen(true)}
+          onAddPlay={() => {
+            setEditingPlay(null);
+            setIsAddPlayModalOpen(true);
+          }}
+          onEditPlay={handleEditPlay}
         />
       )}
 
       {view === 'assets' && (
         <AssetLibrary
           assets={assets}
+          dictionary={dictionary}
           onViewAsset={handleViewAsset}
           onAddAsset={handleOpenAddAssetModal}
+          onEditAsset={handleEditAsset}
         />
       )}
 
@@ -212,7 +242,11 @@ export default function App() {
         <OpportunityBoard
           opportunities={opportunities}
           onSelectOpportunity={handleSelectOpportunity}
-          onAddOpportunity={() => setIsAddOppModalOpen(true)}
+          onAddOpportunity={() => {
+            setEditingOpportunity(null);
+            setIsAddOppModalOpen(true);
+          }}
+          onEditOpportunity={handleEditOpportunity}
         />
       )}
 
@@ -276,34 +310,49 @@ export default function App() {
           onClose={handleCloseAddAssetModal}
           onSave={handleSaveNewAsset}
           onAdvancedMode={handleSwitchToAdvancedAdd}
+          initialData={editingAsset || undefined}
         />
       </Modal>
 
       {/* Add Play Modal */}
       <Modal
         isOpen={isAddPlayModalOpen}
-        onClose={() => setIsAddPlayModalOpen(false)}
-        title="Create New Play"
+        onClose={() => {
+          setIsAddPlayModalOpen(false);
+          setEditingPlay(null);
+        }}
+        title={editingPlay ? "Edit Play" : "Create New Play"}
         maxWidth="max-w-4xl"
       >
         <AddPlayModal
           dictionary={dictionary}
-          onClose={() => setIsAddPlayModalOpen(false)}
+          onClose={() => {
+            setIsAddPlayModalOpen(false);
+            setEditingPlay(null);
+          }}
           onSave={handleSaveNewPlay}
+          initialData={editingPlay || undefined}
         />
       </Modal>
 
       {/* Add Opportunity Modal */}
       <Modal
         isOpen={isAddOppModalOpen}
-        onClose={() => setIsAddOppModalOpen(false)}
-        title="New Opportunity"
+        onClose={() => {
+          setIsAddOppModalOpen(false);
+          setEditingOpportunity(null);
+        }}
+        title={editingOpportunity ? "Edit Opportunity" : "New Opportunity"}
         maxWidth="max-w-4xl"
       >
         <AddOpportunityModal
           dictionary={dictionary}
-          onClose={() => setIsAddOppModalOpen(false)}
+          onClose={() => {
+            setIsAddOppModalOpen(false);
+            setEditingOpportunity(null);
+          }}
           onSave={handleSaveNewOpp}
+          initialData={editingOpportunity || undefined}
         />
       </Modal>
 

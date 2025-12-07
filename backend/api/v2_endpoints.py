@@ -117,6 +117,90 @@ async def get_play(play_id: str, db: AsyncSession = Depends(get_db)):
         updated_at=play.updated_at
     )
 
+@router.delete("/plays/{play_id}")
+async def delete_play(play_id: str, db: AsyncSession = Depends(get_db)):
+    try:
+        pid = int(play_id)
+        stmt = select(GTMPlayModel).filter(GTMPlayModel.id == pid)
+        result = await db.execute(stmt)
+        play = result.scalars().first()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Play ID format")
+
+    if not play:
+        raise HTTPException(status_code=404, detail="Play not found")
+
+    await db.delete(play)
+    await db.commit()
+    return {"status": "success", "message": "Play deleted"}
+
+@router.put("/plays/{play_id}", response_model=Play)
+async def update_play(play_id: str, play_update: PlayCreate, db: AsyncSession = Depends(get_db)):
+    # Note: Using PlayCreate schema for update for simplicity, assuming full replace or we map fields
+    try:
+        pid = int(play_id)
+        stmt = select(GTMPlayModel).options(
+            selectinload(GTMPlayModel.technologies),
+            selectinload(GTMPlayModel.tags)
+        ).filter(GTMPlayModel.id == pid)
+        result = await db.execute(stmt)
+        db_play = result.scalars().first()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Play ID format")
+    
+    if not db_play:
+        raise HTTPException(status_code=404, detail="Play not found")
+        
+    # Update Fields
+    # For now, simplistic mapping of some key fields
+    db_play.title = play_update.title
+    db_play.description = play_update.summary
+    db_play.offering = play_update.offering
+    db_play.sector = play_update.sector
+    db_play.geo = play_update.geo
+    db_play.stage_scope = play_update.stage_scope
+    db_play.stages = [s.dict() for s in play_update.stages] if play_update.stages else []
+    db_play.owners = play_update.owners
+    db_play.collections = play_update.collections
+    
+    # Update Technologies (Full Replace)
+    if play_update.technologies is not None:
+        techs = await db.execute(select(TechnologyModel).filter(TechnologyModel.name.in_(play_update.technologies)))
+        db_play.technologies = techs.scalars().all()
+        
+    # Update Tags (Full Replace logic similar to create)
+    if play_update.tags is not None:
+        db_play.tags = [] # Clear existing
+        tags = await db.execute(select(TagModel).filter(TagModel.name.in_(play_update.tags)))
+        existing_tags = tags.scalars().all()
+        existing_tag_names = [t.name for t in existing_tags]
+        
+        for tag_name in play_update.tags:
+            if tag_name not in existing_tag_names:
+                new_tag = TagModel(name=tag_name)
+                db.add(new_tag)
+                db_play.tags.append(new_tag)
+            else:
+                db_play.tags.append(next(t for t in existing_tags if t.name == tag_name))
+
+    await db.commit()
+    await db.refresh(db_play)
+    
+    return Play(
+        id=str(db_play.id),
+        title=db_play.title,
+        summary=db_play.description,
+        offering=db_play.offering,
+        technologies=[t.name for t in db_play.technologies],
+        stage_scope=db_play.stage_scope or [],
+        stages=db_play.stages or [],
+        sector=db_play.sector,
+        geo=db_play.geo,
+        tags=[t.name for t in db_play.tags],
+        owners=db_play.owners or [],
+        updated_at=db_play.updated_at
+    )
+
 # --- Assets ---
 
 @router.get("/assets", response_model=List[Asset])
@@ -189,6 +273,93 @@ async def create_asset(asset: AssetCreate, db: AsyncSession = Depends(get_db)):
             linked_play_ids=db_asset.linked_play_ids or [],
             technologies=db_asset.technologies or []
         )
+
+@router.get("/assets/{asset_id}", response_model=Asset)
+async def get_asset(asset_id: str, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.orm import selectinload
+    stmt = select(AssetModel).options(
+        selectinload(AssetModel.tags),
+        selectinload(AssetModel.metadata_entry)
+    ).filter(AssetModel.id == asset_id)
+    result = await db.execute(stmt)
+    asset = result.scalars().first()
+    
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    return Asset(
+        id=asset.id,
+        title=asset.title,
+        description=asset.description,
+        kind=asset.kind,
+        uri=asset.uri or f"/assets/{asset.file_path}", 
+        purpose=asset.purpose,
+        default_stage=asset.default_stage,
+        tags=[t.name for t in asset.tags],
+        owners=asset.owners or [],
+        created_at=asset.created_at,
+        updated_at=asset.updated_at,
+        links=[AssetLink(**l) for l in asset.links] if asset.links else [],
+        linked_opportunity_ids=asset.linked_opportunity_ids or [],
+        linked_asset_ids=asset.linked_asset_ids or [],
+        offerings=asset.offerings or [],
+        linked_play_ids=asset.linked_play_ids or [],
+        technologies=asset.technologies or []
+    )
+
+@router.delete("/assets/{asset_id}")
+async def delete_asset(asset_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(AssetModel).filter(AssetModel.id == asset_id)
+    result = await db.execute(stmt)
+    asset = result.scalars().first()
+    
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    await db.delete(asset)
+    await db.commit()
+    return {"status": "success", "message": "Asset deleted"}
+
+@router.put("/assets/{asset_id}", response_model=Asset)
+async def update_asset(asset_id: str, asset_update: AssetCreate, db: AsyncSession = Depends(get_db)):
+    # Helper to clean up imports if needed, but they are top level
+    from sqlalchemy.orm import selectinload
+    stmt = select(AssetModel).options(selectinload(AssetModel.tags)).filter(AssetModel.id == asset_id)
+    result = await db.execute(stmt)
+    db_asset = result.scalars().first()
+    
+    if not db_asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+        
+    db_asset.title = asset_update.title
+    db_asset.description = asset_update.description
+    db_asset.kind = asset_update.kind
+    db_asset.purpose = asset_update.purpose
+    db_asset.default_stage = asset_update.default_stage
+    db_asset.uri = asset_update.uri
+    db_asset.owners = asset_update.owners
+    db_asset.offerings = asset_update.offerings
+    db_asset.technologies = asset_update.technologies
+    
+    # Note: Not handling linked_* lists deeply here for brevity, assume simplistic update
+    
+    await db.commit()
+    await db.refresh(db_asset)
+    
+    return Asset(
+        id=db_asset.id,
+        title=db_asset.title,
+        description=db_asset.description,
+        kind=db_asset.kind,
+        uri=db_asset.uri,
+        purpose=db_asset.purpose,
+        default_stage=db_asset.default_stage,
+        tags=[t.name for t in db_asset.tags],
+        owners=db_asset.owners or [],
+        created_at=db_asset.created_at,
+        updated_at=db_asset.updated_at,
+        technologies=db_asset.technologies or []
+    )
 
 # --- Opportunities ---
 
@@ -298,7 +469,85 @@ async def create_opportunity(input: OpportunityInput, db: AsyncSession = Depends
     )
     opp = result.scalars().unique().first()
     
-    # Handle None values for list fields
+    if opp.team_member_user_ids is None:
+        opp.team_member_user_ids = []
+    
+    return opp
+
+@router.delete("/opportunities/{opp_id}")
+async def delete_opportunity(opp_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(OpportunityModel).filter(OpportunityModel.id == opp_id)
+    result = await db.execute(stmt)
+    opp = result.scalars().first()
+    
+    if not opp:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+        
+    await db.delete(opp)
+    await db.commit()
+    return {"status": "success", "message": "Opportunity deleted"}
+
+@router.put("/opportunities/{opp_id}", response_model=Opportunity)
+async def update_opportunity(opp_id: str, opp_update: OpportunityInput, db: AsyncSession = Depends(get_db)):
+    stmt = select(OpportunityModel).options(selectinload(OpportunityModel.opportunity_plays)).filter(OpportunityModel.id == opp_id)
+    result = await db.execute(stmt)
+    opp = result.scalars().first()
+    
+    if not opp:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+        
+    opp.name = opp_update.name or opp.name
+    opp.account_name = opp_update.account_name or opp.account_name
+    opp.sales_stage = opp_update.stage or opp.sales_stage
+    opp.region = opp_update.geo or opp.region
+    opp.industry = opp_update.sector or opp.industry
+    opp.problem_statement = opp_update.notes or opp.problem_statement
+    
+    # Simplistic update for other fields
+    # Simplistic update for other fields
+    if opp_update.tags:
+        opp.tags = opp_update.tags
+
+    if opp_update.team_member_user_ids is not None:
+        opp.team_member_user_ids = opp_update.team_member_user_ids
+        
+    # Validating and Adding Plays (Additive only for safety)
+    if opp_update.plays is not None:
+        current_play_ids = {op.play_id for op in opp.opportunity_plays}
+        # input plays are strings, model uses int
+        new_play_ids = set(int(p_id) for p_id in opp_update.plays)
+        
+        to_add = new_play_ids - current_play_ids
+        
+        for play_id in to_add:
+            play_result = await db.execute(select(GTMPlayModel).filter(GTMPlayModel.id == play_id))
+            play = play_result.scalars().first()
+            
+            if play:
+                opp_play_id = str(uuid.uuid4())
+                opp_play = OpportunityPlayModel(
+                    id=opp_play_id,
+                    opportunity_id=opp.id,
+                    play_id=play.id,
+                    is_active=True
+                )
+                
+                if play.stages:
+                    for stage in play.stages:
+                         stage_instance = OpportunityStageInstanceModel(
+                            id=str(uuid.uuid4()),
+                            opportunity_play_id=opp_play_id,
+                            play_stage_key=stage['key'],
+                            status="not_started",
+                            checklist_item_statuses={}
+                        )
+                         opp_play.stage_instances.append(stage_instance)
+                
+                opp.opportunity_plays.append(opp_play)
+        
+    await db.commit()
+    await db.refresh(opp)
+    
     if opp.team_member_user_ids is None:
         opp.team_member_user_ids = []
     

@@ -1,6 +1,6 @@
 
 
-import { Asset, Dictionary, OpportunityInput, Play, Comment, HistoryItem, AssetCollection, Opportunity, OpportunityPlay } from "../types";
+import { Asset, Dictionary, OpportunityInput, Play, Comment, HistoryItem, AssetCollection, Opportunity, OpportunityPlay, StageNote } from "../types";
 
 const API_BASE = '/api/v2';
 
@@ -107,6 +107,44 @@ export const updateDictionaryOption = async (type: string, oldValue: string, new
 export const deleteDictionaryOption = async (type: string, value: string): Promise<any> => {
   return fetchApi(`/admin/dictionary/${type}/${encodeURIComponent(value)}`, {
     method: 'DELETE'
+  });
+};
+
+// --- Entity Data Mutations ---
+
+export const deleteAsset = async (id: string): Promise<void> => {
+  return fetchApi(`/assets/${id}`, { method: 'DELETE' });
+};
+
+export const updateAsset = async (id: string, data: Partial<Asset>): Promise<Asset> => {
+  return fetchApi(`/assets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+};
+
+export const deletePlay = async (id: string): Promise<void> => {
+  return fetchApi(`/plays/${id}`, { method: 'DELETE' });
+};
+
+export const updatePlay = async (id: string, data: Partial<Play>): Promise<Play> => {
+  return fetchApi(`/plays/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+};
+
+export const deleteOpportunity = async (id: string): Promise<void> => {
+  return fetchApi(`/opportunities/${id}`, { method: 'DELETE' });
+};
+
+export const updateOpportunity = async (id: string, data: Partial<Opportunity>): Promise<Opportunity> => {
+  return fetchApi(`/opportunities/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
   });
 };
 
@@ -305,4 +343,32 @@ export const getUsers = async (): Promise<{ id: string, name: string, avatar: st
     { id: 'u4', name: 'Alice Smith', avatar: 'AS' },
     { id: 'u5', name: 'Bob Brown', avatar: 'BB' },
   ];
+};
+
+// --- Notes ---
+
+export const getNotes = async (stageInstanceId: string): Promise<StageNote[]> => {
+  return fetchApi<StageNote[]>(`/notes/${stageInstanceId}`);
+};
+
+export const createNote = async (data: { stage_instance_id: string; content: string; is_private: boolean; author_id?: string }): Promise<StageNote> => {
+  return fetchApi<StageNote>('/notes/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+};
+
+export const updateNote = async (id: string, data: { content: string; is_private: boolean }): Promise<StageNote> => {
+  return fetchApi<StageNote>(`/notes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+};
+
+export const deleteNote = async (id: string): Promise<void> => {
+  return fetchApi(`/notes/${id}`, {
+    method: 'DELETE'
+  });
 };
