@@ -159,7 +159,14 @@ async def update_play(play_id: str, play_update: PlayCreate, db: AsyncSession = 
     db_play.sector = play_update.sector
     db_play.geo = play_update.geo
     db_play.stage_scope = play_update.stage_scope
-    db_play.stages = [s.dict() for s in play_update.stages] if play_update.stages else []
+    db_play.stage_scope = play_update.stage_scope
+    
+    # Auto-populate stages if missing but scope is provided
+    final_stages = [s.dict() for s in play_update.stages] if play_update.stages else []
+    if not final_stages and play_update.stage_scope:
+        final_stages = _populate_stages_from_scope(play_update.stage_scope)
+        
+    db_play.stages = final_stages
     db_play.owners = play_update.owners
     db_play.collections = play_update.collections
     
@@ -633,7 +640,8 @@ async def create_play(play: PlayCreate, db: AsyncSession = Depends(get_db)):
         sector=play.sector,
         geo=play.geo,
         stage_scope=play.stage_scope,
-        stages=[s.dict() for s in play.stages] if play.stages else [],
+
+        stages=[s.dict() for s in play.stages] if play.stages else _populate_stages_from_scope(play.stage_scope),
         owners=play.owners,
         collections=play.collections
     )
@@ -801,7 +809,88 @@ async def map_offering_technology(offering: str, technology: str, action: str = 
             tech_obj.offerings.remove(off_obj)
             
     await db.commit()
-    return {"status": "success"}
+    return {"status": "success", "message": f"{action}ed {offering} to/from {technology}"}
+
+# --- Constants ---
+
+DEFAULT_STAGES = [
+    {
+        "key": "Discovery",
+        "label": "Discovery",
+        "objective": "Understand the client's current landscape and business drivers.",
+        "guidance": "Focus on open-ended questions. Identify the key stakeholders and the budget holder. Don't pitch solution yet.",
+        "checklist_items": ["Identify Executive Sponsor", "Map current technical landscape", "Define success criteria"]
+    },
+    {
+        "key": "Qualification",
+        "label": "Qualification",
+        "objective": "Confirm budget, authority, need, and timeline (BANT).",
+        "guidance": "Use the TCO calculator to establish a baseline. Ensure technical fit.",
+        "checklist_items": ["Verify budget allocation", "Confirm technical feasibility", "Sign NDA"]
+    },
+    {
+        "key": "Solutioning",
+        "label": "Solutioning",
+        "objective": "Design the technical architecture and migration plan.",
+        "guidance": "Collaborate with the client's architects. Use the standard Reference Architectures.",
+        "checklist_items": ["Draft HLD", "Review with Practice Lead", "Present initial solution"]
+    },
+    {
+        "key": "Validation",
+        "label": "Validation",
+        "objective": "Prove the solution works via POC or deep dive.",
+        "guidance": "Keep scope small and time-boxed.",
+        "checklist_items": ["Execute POC", "Sign off on success criteria"]
+    },
+    {
+        "key": "Closing",
+        "label": "Closing",
+        "objective": "Finalize commercial and legal terms.",
+        "guidance": "Ensure all stakeholders are aligned. Review SOW details.",
+        "checklist_items": ["Finalize commercial proposal", "Legal review", "Sign contract"]
+    },
+    {
+        "key": "Delivery",
+        "label": "Delivery",
+        "objective": "Handover to delivery team for implementation.",
+        "guidance": "Ensure all documentation is up to date in the repository.",
+        "checklist_items": ["Conduct handover workshop", "Finalize SOW"]
+    }
+]
+
+def _populate_stages_from_scope(stage_scope: List[str], existing_stages: List[Dict] = None) -> List[Dict]:
+    """Helper to populate detailed stage definitions from a list of stage keys."""
+    if existing_stages and len(existing_stages) > 0:
+        return existing_stages
+        
+    if not stage_scope:
+        return []
+        
+    result_stages = []
+    # Filter DEFAULT_STAGES based on scope match
+    for default in DEFAULT_STAGES:
+        if default["key"] in stage_scope:
+            result_stages.append(default)
+            
+    # If a scope item is not in defaults, create a generic one
+    existing_keys = [s["key"] for s in result_stages]
+    for scope_item in stage_scope:
+        if scope_item not in existing_keys:
+            result_stages.append({
+                "key": scope_item,
+                "label": scope_item,
+                "objective": f"Complete the {scope_item} stage.",
+                "guidance": "No specific guidance available.",
+                "checklist_items": ["Complete key deliverables"]
+            })
+            
+    # Sort according to stage_scope order? Or keep default order?
+    # Let's sort by stage_scope order to respect user selection order if possible, 
+    # but stage_scope usually comes from multiselect which might be arbitrary. 
+    # Let's trust DEFAULT_STAGES order for standard ones, and append others.
+    return result_stages
+
+
 
 # --- Import ---
 

@@ -95,21 +95,33 @@ export const StageNoteStream: React.FC<StageNoteStreamProps> = ({ stageInstanceI
                     onChange={e => setNewNoteContent(e.target.value)}
                 />
                 <div className="flex justify-between items-center mt-2">
-                    <button
-                        onClick={() => setIsPrivate(!isPrivate)}
-                        className={`text-xs flex items-center gap-1 px-2 py-1 rounded ${isPrivate ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
-                        title={isPrivate ? "Private Note" : "Public Note"}
-                    >
-                        {isPrivate ? <Lock size={12} /> : <Globe size={12} />}
-                        {isPrivate ? 'Private' : 'Public'}
-                    </button>
-                    <button
-                        onClick={handleAddNote}
-                        disabled={!newNoteContent.trim()}
-                        className="bg-indigo-600 text-white p-1.5 rounded-full hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                        <Send size={16} />
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setIsPrivate(!isPrivate)}
+                            className={`text-xs flex items-center gap-1 px-2 py-1.5 rounded transition-colors ${isPrivate ? 'bg-amber-100 text-amber-700 font-medium' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            title={isPrivate ? "Private Note" : "Public Note"}
+                        >
+                            {isPrivate ? <Lock size={12} /> : <Globe size={12} />}
+                            {isPrivate ? 'Private' : 'Public'}
+                        </button>
+                    </div>
+                    <div className="flex gap-2">
+                        {newNoteContent.trim() && (
+                            <button
+                                onClick={() => setNewNoteContent('')}
+                                className="text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5"
+                            >
+                                Cancel
+                            </button>
+                        )}
+                        <button
+                            onClick={handleAddNote}
+                            disabled={!newNoteContent.trim()}
+                            className="bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 disabled:opacity-50 text-xs font-medium flex items-center gap-1"
+                        >
+                            <Send size={12} /> Save Note
+                        </button>
+                    </div>
                 </div>
             </div>
 

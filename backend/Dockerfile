@@ -5,9 +5,10 @@ WORKDIR /app
 # Install system dependencies
 # libpq-dev is needed for psycopg2 (if used) or asyncpg compilation sometimes, 
 # but usually binary wheels work. keeping it simple for now.
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# gcc is usually not needed for modern python wheels
+# RUN apt-get update && apt-get install -y \
+#     gcc \
+#     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for caching
 COPY backend/requirements.txt .

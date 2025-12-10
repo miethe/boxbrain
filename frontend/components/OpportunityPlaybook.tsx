@@ -24,6 +24,8 @@ import {
     X,
     Search
 } from 'lucide-react';
+import { Modal } from './ui/Modal';
+import { PlayDetailModal } from './PlayDetailModal';
 import { AssetCard, AssetRow, AssetIcon } from './ui/AssetItem';
 import ReactMarkdown from 'react-markdown';
 
@@ -55,10 +57,34 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
     const [isAddingTeam, setIsAddingTeam] = useState(false);
     const [isAddingPlay, setIsAddingPlay] = useState(false);
 
+    // Play Preview State
+    const [previewPlayId, setPreviewPlayId] = useState<string | null>(null);
+    const [previewPlay, setPreviewPlay] = useState<Play | null>(null);
+
+    // Load preview play
+    useEffect(() => {
+        if (previewPlayId) {
+            getPlayById(previewPlayId).then(p => {
+                if (p) setPreviewPlay(p);
+            });
+        } else {
+            setPreviewPlay(null);
+        }
+    }, [previewPlayId]);
+
     // Fetch play template data
     useEffect(() => {
         if (activePlayId) {
-            getPlayById(activePlayId).then(setPlayTemplate);
+            getPlayById(activePlayId).then(p => {
+                setPlayTemplate(p);
+                // Reset to first stage of new play if current stage is invalid for it
+                if (p && p.stages && p.stages.length > 0) {
+                    const currentStageValid = p.stages.some(s => s.key === activeStageKey);
+                    if (!currentStageValid) {
+                        setActiveStageKey(p.stages[0].key);
+                    }
+                }
+            });
         }
     }, [activePlayId]);
 
@@ -590,7 +616,11 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                 .filter(p => !opportunity.opportunity_plays.some(op => String(op.play_id) === String(p.id)))
                                 .slice(0, 3)
                                 .map(play => (
-                                    <div key={play.id} className="bg-white border border-slate-200 rounded p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group">
+                                    <div
+                                        key={play.id}
+                                        onClick={() => setPreviewPlayId(String(play.id))}
+                                        className="bg-white border border-slate-200 rounded p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group"
+                                    >
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="text-xs font-bold text-slate-700">{play.title}</span>
                                             {/* Match Score Mock */}
@@ -598,7 +628,10 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                         </div>
                                         <p className="text-xs text-slate-500 line-clamp-2">{play.summary}</p>
                                         <button
-                                            onClick={() => handleAddPlay(String(play.id))}
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent opening modal
+                                                handleAddPlay(String(play.id));
+                                            }}
                                             className="absolute top-2 right-2 bg-indigo-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                             title="Add Play"
                                         >
@@ -611,7 +644,7 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                 <div className="text-xs text-slate-400 italic">No recommendations available.</div>
                             )}
                             <button
-                                onClick={() => alert("Full catalog browser coming soon")}
+                                onClick={() => onViewPlay('catalog')} // This will just go to catalog if handled by parent, or we can open a picker modal
                                 className="w-full py-2 text-xs text-indigo-600 font-medium border border-dashed border-indigo-200 rounded hover:bg-indigo-50 flex items-center justify-center gap-1"
                             >
                                 <Plus size={12} /> Browse Play Catalog
@@ -621,6 +654,23 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
 
                 </aside>
             </div>
+            {/* Preview Modal for Recommended Plays */}
+            <Modal
+                isOpen={!!previewPlay}
+                onClose={() => setPreviewPlayId(null)}
+                title={previewPlay?.title || ''}
+            >
+                {previewPlay && (
+                    <div className="p-0">
+                        <PlayDetailModal
+                            play={previewPlay}
+                            dictionary={{} as any}
+                            onClose={() => setPreviewPlayId(null)}
+                            onViewAsset={onViewAsset}
+                        />
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };
