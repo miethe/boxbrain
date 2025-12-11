@@ -206,3 +206,16 @@ class OpportunityInput(BaseModel):
     name: Optional[str] = None
     account_name: Optional[str] = None
     team_member_user_ids: Optional[List[str]] = []
+
+class OpportunityUpdate(BaseModel):
+    sector: Optional[str] = None
+    offering: Optional[str] = None
+    stage: Optional[str] = None
+    technologies: Optional[List[str]] = None
+    geo: Optional[str] = None
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
+    plays: Optional[List[str]] = None
+    name: Optional[str] = None
+    account_name: Optional[str] = None
+    team_member_user_ids: Optional[List[str]] = None

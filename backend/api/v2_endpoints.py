@@ -496,7 +496,7 @@ async def delete_opportunity(opp_id: str, db: AsyncSession = Depends(get_db)):
     return {"status": "success", "message": "Opportunity deleted"}
 
 @router.put("/opportunities/{opp_id}", response_model=Opportunity)
-async def update_opportunity(opp_id: str, opp_update: OpportunityInput, db: AsyncSession = Depends(get_db)):
+async def update_opportunity(opp_id: str, opp_update: OpportunityUpdate, db: AsyncSession = Depends(get_db)):
     stmt = select(OpportunityModel).options(selectinload(OpportunityModel.opportunity_plays)).filter(OpportunityModel.id == opp_id)
     result = await db.execute(stmt)
     opp = result.scalars().first()

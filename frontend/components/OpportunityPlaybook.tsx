@@ -39,9 +39,9 @@ interface OpportunityPlaybookProps {
 
 export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opportunity, onNavigateBack, onViewPlay, onViewAsset }) => {
     // State for local execution
-    const [activePlayId, setActivePlayId] = useState<string>(opportunity.opportunity_plays[0]?.play_id);
+    const [activePlayId, setActivePlayId] = useState<string>(String(opportunity.opportunity_plays[0]?.play_id));
     // Find the currently active OpportunityPlay
-    const activeOppPlay = opportunity.opportunity_plays.find(op => op.play_id === activePlayId);
+    const activeOppPlay = opportunity.opportunity_plays.find(op => String(op.play_id) === String(activePlayId));
 
     // Default to current stage of opportunity or first stage of play
     const [activeStageKey, setActiveStageKey] = useState<string>(opportunity.current_stage_key || 'Discovery');
@@ -99,8 +99,8 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
             const playsMap: Record<string, Play> = {};
             for (const op of opportunity.opportunity_plays) {
                 try {
-                    const p = await getPlayById(op.play_id);
-                    if (p) playsMap[op.play_id] = p;
+                    const p = await getPlayById(String(op.play_id));
+                    if (p) playsMap[String(op.play_id)] = p;
                 } catch (e) {
                     console.error(`Failed to load play ${op.play_id} `, e);
                 }
@@ -278,7 +278,7 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                             className="text-sm font-semibold text-indigo-700 bg-transparent border-none focus:ring-0 p-0 cursor-pointer text-right"
                         >
                             {opportunity.opportunity_plays.map(op => {
-                                const p = availablePlays[op.play_id];
+                                const p = availablePlays[String(op.play_id)];
                                 return <option key={op.play_id} value={op.play_id}>{p?.title || 'Loading...'}</option>
                             })}
                         </select>
