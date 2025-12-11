@@ -27,6 +27,7 @@ import {
 import { Modal } from './ui/Modal';
 import { PlayDetailModal } from './PlayDetailModal';
 import { AssetCard, AssetRow, AssetIcon } from './ui/AssetItem';
+import { BrowsePlayCatalogModal } from './BrowsePlayCatalogModal';
 import ReactMarkdown from 'react-markdown';
 
 interface OpportunityPlaybookProps {
@@ -60,6 +61,10 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
     // Play Preview State
     const [previewPlayId, setPreviewPlayId] = useState<string | null>(null);
     const [previewPlay, setPreviewPlay] = useState<Play | null>(null);
+
+    // UI States
+    const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+    const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 
     // Load preview play
     useEffect(() => {
@@ -385,16 +390,24 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                     } `}>
                                     {activeStageInstance?.status.replace('_', ' ')}
                                 </span>
-                                <div className="relative group">
-                                    <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
+                                        className="p-2 hover:bg-slate-100 rounded-full text-slate-400 focus:outline-none"
+                                    >
                                         <MoreHorizontal size={20} />
                                     </button>
                                     {/* Dropdown for Status */}
-                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 shadow-lg rounded-md hidden group-hover:block z-10">
-                                        <button onClick={() => handleStatusChange('not_started')} className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50">Not Started</button>
-                                        <button onClick={() => handleStatusChange('in_progress')} className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50">In Progress</button>
-                                        <button onClick={() => handleStatusChange('completed')} className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50">Completed</button>
-                                    </div>
+                                    {isStatusMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-10" onClick={() => setIsStatusMenuOpen(false)}></div>
+                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 shadow-lg rounded-md z-20">
+                                                <button onClick={() => { handleStatusChange('not_started'); setIsStatusMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50">Not Started</button>
+                                                <button onClick={() => { handleStatusChange('in_progress'); setIsStatusMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50">In Progress</button>
+                                                <button onClick={() => { handleStatusChange('completed'); setIsStatusMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm hover:bg-slate-50">Completed</button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -552,43 +565,45 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                     {/* Team */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Team</h4>
-                        <div className="flex -space-x-2 overflow-hidden mb-2 items-center">
-                            {(opportunity.team_member_user_ids || []).map(uid => {
-                                const u = users.find(user => user.id === uid);
-                                if (!u) return null;
-                                return (
-                                    <div key={u.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-slate-300 flex items-center justify-center text-xs font-bold shrink-0" title={u.name}>
-                                        {u.avatar}
-                                    </div>
-                                );
-                            })}
-                            <div className="relative">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex -space-x-2 overflow-hidden items-center">
+                                {(opportunity.team_member_user_ids || []).map(uid => {
+                                    const u = users.find(user => user.id === uid);
+                                    if (!u) return null;
+                                    return (
+                                        <div key={u.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-slate-300 flex items-center justify-center text-xs font-bold shrink-0" title={u.name}>
+                                            {u.avatar}
+                                        </div>
+                                    );
+                                })}
                                 <button
                                     onClick={() => setIsAddingTeam(!isAddingTeam)}
-                                    className="h-8 w-8 rounded-full ring-2 ring-white bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 ml-2"
+                                    className={`h-8 w-8 rounded-full ring-2 ring-white border border-slate-200 flex items-center justify-center ml-2 z-10 ${isAddingTeam ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600'}`}
                                 >
-                                    <Plus size={14} />
+                                    {isAddingTeam ? <X size={14} /> : <Plus size={14} />}
                                 </button>
-                                {isAddingTeam && (
-                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 shadow-xl rounded-lg z-20 overflow-hidden">
-                                        <div className="max-h-48 overflow-y-auto">
-                                            {users.filter(u => !(opportunity.team_member_user_ids || []).includes(u.id)).map(u => (
-                                                <button
-                                                    key={u.id}
-                                                    onClick={() => handleAddTeamMember(u.id)}
-                                                    className="w-full text-left px-3 py-2 hover:bg-indigo-50 flex items-center gap-2"
-                                                >
-                                                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">{u.avatar}</div>
-                                                    <span className="text-sm text-slate-700">{u.name}</span>
-                                                </button>
-                                            ))}
-                                            {users.filter(u => !(opportunity.team_member_user_ids || []).includes(u.id)).length === 0 && (
-                                                <div className="p-3 text-xs text-slate-400 text-center">No more users</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
+
+                            {/* Inline Team Adder */}
+                            {isAddingTeam && (
+                                <div className="mt-2 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-1">
+                                    <div className="max-h-48 overflow-y-auto">
+                                        {users.filter(u => !(opportunity.team_member_user_ids || []).includes(u.id)).map(u => (
+                                            <button
+                                                key={u.id}
+                                                onClick={() => handleAddTeamMember(u.id)}
+                                                className="w-full text-left px-3 py-2 hover:bg-indigo-50 flex items-center gap-2 border-b border-slate-50 last:border-0"
+                                            >
+                                                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">{u.avatar}</div>
+                                                <span className="text-sm text-slate-700">{u.name}</span>
+                                            </button>
+                                        ))}
+                                        {users.filter(u => !(opportunity.team_member_user_ids || []).includes(u.id)).length === 0 && (
+                                            <div className="p-3 text-xs text-slate-400 text-center">No more users</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -644,7 +659,7 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                                 <div className="text-xs text-slate-400 italic">No recommendations available.</div>
                             )}
                             <button
-                                onClick={() => onViewPlay('catalog')} // This will just go to catalog if handled by parent, or we can open a picker modal
+                                onClick={() => setIsCatalogOpen(true)}
                                 className="w-full py-2 text-xs text-indigo-600 font-medium border border-dashed border-indigo-200 rounded hover:bg-indigo-50 flex items-center justify-center gap-1"
                             >
                                 <Plus size={12} /> Browse Play Catalog
@@ -671,6 +686,14 @@ export const OpportunityPlaybook: React.FC<OpportunityPlaybookProps> = ({ opport
                     </div>
                 )}
             </Modal>
+
+            <BrowsePlayCatalogModal
+                isOpen={isCatalogOpen}
+                onClose={() => setIsCatalogOpen(false)}
+                plays={allPlays}
+                onAddPlay={handleAddPlay}
+                currentPlayIds={opportunity.opportunity_plays.map(op => String(op.play_id))}
+            />
         </div>
     );
 };
