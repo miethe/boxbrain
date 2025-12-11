@@ -1,24 +1,39 @@
 import React, { useState, useMemo } from 'react';
 import { Opportunity } from '../types';
-import { Search, Filter, Plus, LayoutGrid, List, ArrowUpDown, Briefcase, Activity, Edit2 } from 'lucide-react';
+import { Search, Filter, Plus, LayoutGrid, List, ArrowUpDown, Briefcase, Activity, Edit2, Trash2 } from 'lucide-react';
+import { Modal } from './ui/Modal';
 
 interface OpportunityBoardProps {
     opportunities: Opportunity[];
     onSelectOpportunity: (id: string) => void;
     onAddOpportunity: () => void;
     onEditOpportunity?: (opp: Opportunity) => void;
+    onDeleteOpportunity?: (id: string) => void;
 }
 
 type ViewMode = 'grid' | 'list';
 type SortMode = 'name_asc' | 'name_desc' | 'date_desc';
 type GroupBy = 'none' | 'stage';
 
-export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunities, onSelectOpportunity, onAddOpportunity, onEditOpportunity }) => {
+export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunities, onSelectOpportunity, onAddOpportunity, onEditOpportunity, onDeleteOpportunity }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [sortMode, setSortMode] = useState<SortMode>('date_desc');
     const [groupBy, setGroupBy] = useState<GroupBy>('none');
     const [filterStage, setFilterStage] = useState('All');
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        setItemToDelete(id);
+    };
+
+    const confirmDelete = () => {
+        if (itemToDelete && onDeleteOpportunity) {
+            onDeleteOpportunity(itemToDelete);
+            setItemToDelete(null);
+        }
+    };
 
     const filteredOpps = useMemo(() => {
         return opportunities.filter(opp => {
@@ -185,18 +200,29 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                                             </span>
                                         </div>
 
-                                        {onEditOpportunity && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onEditOpportunity(opp);
-                                                }}
-                                                className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded opacity-0 group-hover/card group-hover:opacity-100 transition-all z-10"
-                                                title="Edit Opportunity"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                        )}
+                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-10 bg-white/50 backdrop-blur-sm rounded-md p-0.5">
+                                            {onEditOpportunity && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onEditOpportunity(opp);
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+                                                    title="Edit Opportunity"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                            )}
+                                            {onDeleteOpportunity && (
+                                                <button
+                                                    onClick={(e) => handleDeleteClick(e, opp.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition-colors"
+                                                    title="Delete Opportunity"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
 
                                         <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center text-sm">
                                             <span className="text-slate-600 font-medium">{opp.sales_stage}</span>
@@ -249,18 +275,29 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                                             <span className="text-sm text-slate-400 w-24 text-right">
                                                 {new Date(opp.updated_at || '').toLocaleDateString()}
                                             </span>
-                                            {onEditOpportunity && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onEditOpportunity(opp);
-                                                    }}
-                                                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors group-hover:opacity-100 opacity-0"
-                                                    title="Edit Opportunity"
-                                                >
-                                                    <Edit2 size={16} />
-                                                </button>
-                                            )}
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {onEditOpportunity && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onEditOpportunity(opp);
+                                                        }}
+                                                        className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+                                                        title="Edit Opportunity"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                )}
+                                                {onDeleteOpportunity && (
+                                                    <button
+                                                        onClick={(e) => handleDeleteClick(e, opp.id)}
+                                                        className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-slate-100 rounded transition-colors"
+                                                        title="Delete Opportunity"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -269,6 +306,33 @@ export const OpportunityBoard: React.FC<OpportunityBoardProps> = ({ opportunitie
                     </div>
                 ))}
             </div>
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={!!itemToDelete}
+                onClose={() => setItemToDelete(null)}
+                title="Delete Opportunity"
+                maxWidth="max-w-md"
+            >
+                <div className="p-6">
+                    <p className="text-slate-600 mb-6">
+                        Are you sure you want to delete this opportunity? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={() => setItemToDelete(null)}
+                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={confirmDelete}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                        >
+                            Delete Opportunity
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

@@ -15,7 +15,7 @@ import { AddOpportunityModal } from './components/AddOpportunityModal';
 import { AdminPage } from './components/AdminPage';
 import { Modal } from './components/ui/Modal';
 import { ViewState, Play, Asset, Opportunity } from './types';
-import { getDictionary, getPlays, getAssets, getPlayById, getAssetById, getOpportunities, getOpportunityById } from './services/dataService';
+import { getDictionary, getPlays, getAssets, getPlayById, getAssetById, getOpportunities, getOpportunityById, deleteOpportunity } from './services/dataService';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('opportunity-guide');
@@ -191,6 +191,19 @@ export default function App() {
     setIsAddOppModalOpen(true);
   };
 
+
+
+  const handleDeleteOpportunity = async (oppId: string) => {
+    try {
+      await deleteOpportunity(oppId);
+      setOpportunities(prev => prev.filter(o => o.id !== oppId));
+    } catch (error) {
+      console.error("Failed to delete opportunity", error);
+      // Ideally show a toast here
+      alert("Failed to delete opportunity");
+    }
+  };
+
   const selectedPlay = selectedPlayId ? plays.find(p => p.id === selectedPlayId) : null;
   const selectedAsset = selectedAssetId ? assets.find(a => a.id === selectedAssetId) : null;
   const selectedOpportunity = selectedOppId ? opportunities.find(o => o.id === selectedOppId) : null;
@@ -247,6 +260,7 @@ export default function App() {
             setIsAddOppModalOpen(true);
           }}
           onEditOpportunity={handleEditOpportunity}
+          onDeleteOpportunity={handleDeleteOpportunity}
         />
       )}
 
