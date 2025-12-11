@@ -37,6 +37,7 @@ export interface Play {
   owners: string[];
   updated_at: string;
   matchScore?: number; // Runtime calculated
+  default_team_members?: string[];
 }
 
 export interface AssetLink {

@@ -121,6 +121,7 @@ class GTMPlayModel(Base):
     sales_stage = Column(String, nullable=True) # Legacy V1? V2 uses stage_scope
     stage_scope = Column(JSON, nullable=True) # V2: List of strings
     stages = Column(JSON, nullable=True) # V2: Detailed stage definitions
+    default_team_members = Column(JSON, nullable=True) # V2: List of strings (User IDs)
     owners = Column(JSON, nullable=True) # V2: List of strings
     collections = Column(JSON, nullable=True) # V2: List of strings (collection IDs or names)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dictionary, Play } from '../types';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
-import { createPlay, addDictionaryOption, updatePlay } from '../services/dataService';
+import { createPlay, addDictionaryOption, updatePlay, getUsers } from '../services/dataService';
 import { MultiSelect } from './Common';
 import { CollapsibleSection } from './ui/CollapsibleSection';
 
@@ -22,12 +22,18 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
         sector: 'Cross-sector',
         geo: 'Americas',
         tags: [],
-        owners: []
+        owners: [],
+        default_team_members: []
     });
 
     const [availableTechnologies, setAvailableTechnologies] = useState<string[]>([]);
     const [newTechInput, setNewTechInput] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [users, setUsers] = useState<{ id: string, name: string, avatar: string }[]>([]);
+
+    useEffect(() => {
+        getUsers().then(setUsers);
+    }, []);
 
     // Initialize available technologies from dictionary
     useEffect(() => {
@@ -48,7 +54,9 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
                 sector: initialData.sector || 'Cross-sector',
                 geo: initialData.geo || 'Americas',
                 tags: initialData.tags || [],
-                owners: initialData.owners || []
+                owners: initialData.owners || [],
+                default_team_members: initialData.default_team_members || [],
+                stages: initialData.stages || []
             });
         }
     }, [initialData]);
@@ -164,6 +172,57 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
 
         return sortedGroups;
     }, [availableTechnologies, dictionary.technology_categories, formData.offering, dictionary.offering_to_technologies]);
+
+    // Sync stages with stage_scope
+    useEffect(() => {
+        if (!formData.stage_scope) return;
+
+        setFormData(prev => {
+            const currentStages = prev.stages || [];
+            const newStages: any[] = [];
+            let hasChanges = false;
+
+            // Keep existing stages if in scope, add new ones if missing
+            prev.stage_scope?.forEach(scope => {
+                const existing = currentStages.find(s => s.key === scope);
+                if (existing) {
+                    newStages.push(existing);
+                } else {
+                    hasChanges = true;
+                    newStages.push({
+                        key: scope,
+                        label: scope,
+                        objective: '',
+                        guidance: '',
+                        checklist_items: []
+                    });
+                }
+            });
+
+            // Also check if any were removed
+            if (currentStages.length !== newStages.length) hasChanges = true;
+
+            if (hasChanges) {
+                return { ...prev, stages: newStages };
+            }
+            return prev;
+        });
+    }, [formData.stage_scope]); // Depend on the array reference (setFormData creates new array ref)
+
+    const updateStageStandard = (stageKey: string, field: 'guidance' | 'checklist_items', value: any) => {
+        setFormData(prev => {
+            const currentStages = [...(prev.stages || [])];
+            const index = currentStages.findIndex(s => s.key === stageKey);
+            if (index >= 0) {
+                currentStages[index] = { ...currentStages[index], [field]: value };
+            }
+            return { ...prev, stages: currentStages };
+        });
+    };
+
+    const getStageDef = (key: string) => {
+        return formData.stages?.find(s => s.key === key) || { key, label: key, objective: '', guidance: '', checklist_items: [] };
+    };
 
     return (
         <div className="flex flex-col h-full bg-slate-50 max-h-[90vh] overflow-hidden">
@@ -340,6 +399,129 @@ export const AddPlayModal: React.FC<AddPlayModalProps> = ({ dictionary, onClose,
                                     >
                                         Add
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    </CollapsibleSection>
+
+                    {/* Standards & Resourcing */}
+                    <CollapsibleSection title="Standards & Resourcing">
+                        <div className="space-y-6">
+                            {/* Standard Team */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-800 mb-2">Attached Team Members</h4>
+                                <p className="text-xs text-slate-500 mb-2">These members will be automatically added to the opportunity team.</p>
+                                <div className="border border-slate-200 rounded-md p-3 bg-white">
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {(formData.default_team_members || []).map(userId => {
+                                            const u = users.find(user => user.id === userId);
+                                            return (
+                                                <span key={userId} className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">
+                                                    {u?.name || userId}
+                                                    <button
+                                                        onClick={() => setFormData(prev => ({ ...prev, default_team_members: prev.default_team_members?.filter(id => id !== userId) }))}
+                                                        className="hover:text-red-500"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </span>
+                                            );
+                                        })}
+                                        {(!formData.default_team_members || formData.default_team_members.length === 0) && <span className="text-xs text-slate-400">No team members selected.</span>}
+                                    </div>
+                                    <select
+                                        className="w-full border border-slate-300 rounded text-sm p-1.5"
+                                        onChange={(e) => {
+                                            if (!e.target.value) return;
+                                            const val = e.target.value;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                default_team_members: prev.default_team_members?.includes(val) ? prev.default_team_members : [...(prev.default_team_members || []), val]
+                                            }));
+                                            e.target.value = '';
+                                        }}
+                                    >
+                                        <option value="">Add team member...</option>
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Stage Standards */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-800 mb-2">Stage Standards</h4>
+                                <p className="text-xs text-slate-500 mb-4">Define guidance and key outcomes for each applicable stage.</p>
+
+                                <div className="space-y-6">
+                                    {(formData.stage_scope || []).map(stageKey => {
+                                        const stageData = getStageDef(stageKey);
+                                        return (
+                                            <div key={stageKey} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                                                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 font-bold text-sm text-slate-700 flex justify-between items-center">
+                                                    {stageKey}
+                                                </div>
+                                                <div className="p-4 space-y-4">
+                                                    {/* Guidance */}
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Guidance</label>
+                                                        <textarea
+                                                            placeholder={`Guidance for ${stageKey}...`}
+                                                            className="w-full text-sm border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                            rows={2}
+                                                            value={stageData.guidance || ''}
+                                                            onChange={(e) => updateStageStandard(stageKey, 'guidance', e.target.value)}
+                                                        />
+                                                    </div>
+
+                                                    {/* Outcomes */}
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Key Outcomes / Tasks</label>
+                                                        <div className="space-y-2">
+                                                            {(stageData.checklist_items || []).map((item, idx) => (
+                                                                <div key={idx} className="flex gap-2">
+                                                                    <div className="flex-1 text-sm bg-slate-50 p-2 rounded border border-slate-100">{item}</div>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newItems = stageData.checklist_items.filter((_, i) => i !== idx);
+                                                                            updateStageStandard(stageKey, 'checklist_items', newItems);
+                                                                        }}
+                                                                        className="text-slate-400 hover:text-red-500"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            <div className="flex gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Add new task..."
+                                                                    className="flex-1 text-sm border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            const val = (e.currentTarget.value || '').trim();
+                                                                            if (val) {
+                                                                                const newItems = [...(stageData.checklist_items || []), val];
+                                                                                updateStageStandard(stageKey, 'checklist_items', newItems);
+                                                                                e.currentTarget.value = '';
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {(!formData.stage_scope || formData.stage_scope.length === 0) && (
+                                        <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg">
+                                            Select "Applicable Stages" in Classification above to configure detailed standards.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

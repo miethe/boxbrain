@@ -99,6 +99,7 @@ class GTMPlay(BaseModel):
     region: Optional[str] = None
     sales_stage: Optional[str] = None
     match_score: Optional[int] = None # For matching results
+    default_team_members: List[str] = []
     assets: List[AssetMetadata] = [] # For returning full asset details
 
 class GTMPlayCreate(BaseModel):
@@ -108,6 +109,13 @@ class GTMPlayCreate(BaseModel):
     industry: Optional[str] = None
     region: Optional[str] = None
     sales_stage: Optional[str] = None
+    technologies: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    stage_scope: Optional[List[str]] = None
+    stages: Optional[List[dict]] = None
+    owners: Optional[List[str]] = None
+    collections: Optional[List[str]] = None
+    default_team_members: Optional[List[str]] = None
 
 class AssetGTMPlayLink(BaseModel):
     asset_id: str

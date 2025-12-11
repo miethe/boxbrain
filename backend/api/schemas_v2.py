@@ -71,6 +71,7 @@ class Play(BaseModel):
     owners: Optional[List[str]] = []
     updated_at: Optional[datetime] = None
     matchScore: Optional[float] = None
+    default_team_members: Optional[List[str]] = []
 
     class Config:
         from_attributes = True
@@ -87,6 +88,7 @@ class PlayCreate(BaseModel):
     tags: List[str] = []
     owners: Optional[List[str]] = []
     collections: Optional[List[str]] = []
+    default_team_members: Optional[List[str]] = []
 
 class Dictionary(BaseModel):
     offerings: List[str]

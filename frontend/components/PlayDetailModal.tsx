@@ -6,7 +6,8 @@ import {
   getPlayAssets,
   getPlayCollections,
   getRelatedPlays,
-  deletePlay
+  deletePlay,
+  getUsers
 } from '../services/dataService';
 import {
   MessageSquare,
@@ -45,6 +46,9 @@ export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictiona
   const assets = getPlayAssets(play.id);
   const collections = getPlayCollections(play.id);
   const relatedPlays = getRelatedPlays(play.id);
+
+  const [users, setUsers] = useState<{ id: string, name: string, avatar: string }[]>([]);
+  React.useEffect(() => { getUsers().then(setUsers); }, []);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
@@ -203,6 +207,25 @@ export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictiona
               </div>
 
               <div className="border-t border-slate-200 pt-4">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Attached Team</h4>
+                <div className="space-y-2">
+                  {(play.default_team_members || []).length > 0 ? (play.default_team_members || []).map(uid => {
+                    const u = users.find(user => user.id === uid);
+                    return (
+                      <div key={uid} className="flex items-center gap-2 text-sm text-slate-700">
+                        <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
+                          {u?.avatar || 'U'}
+                        </div>
+                        <span>{u?.name || uid}</span>
+                      </div>
+                    );
+                  }) : (
+                    <span className="text-xs text-slate-400 italic">No standard team defined.</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Related Plays</h4>
                 <div className="space-y-3">
                   {relatedPlays.map(rp => (
@@ -229,8 +252,44 @@ const OverviewTab: React.FC<{ play: Play }> = ({ play }) => {
       <section>
         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3">Description</h3>
         <p className="text-slate-700 leading-relaxed text-lg">{play.summary}</p>
-
       </section>
+
+      {play.stages && play.stages.length > 0 && (
+        <section>
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Stage Standards</h3>
+          <div className="grid gap-4">
+            {play.stages.map(stage => {
+              const hasContent = stage.guidance || (stage.checklist_items && stage.checklist_items.length > 0);
+              if (!hasContent) return null;
+              return (
+                <div key={stage.key} className="border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 text-sm font-bold text-slate-800">
+                    {stage.label || stage.key}
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {stage.guidance && (
+                      <div>
+                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Guidance</h5>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{stage.guidance}</p>
+                      </div>
+                    )}
+                    {stage.checklist_items && stage.checklist_items.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Key Outcomes</h5>
+                        <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
+                          {stage.checklist_items.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

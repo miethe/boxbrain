@@ -10,7 +10,7 @@ from ..models_db import (
     SectorModel, GeoModel, StageModel
 )
 from .schemas_v2 import (
-    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate, StageUpdate, OpportunityStageInstance
+    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate, StageUpdate, OpportunityStageInstance, OpportunityUpdate
 )
 import uuid
 
@@ -81,7 +81,8 @@ async def get_plays(db: AsyncSession = Depends(get_db)):
             geo=p.geo,
             tags=[t.name for t in p.tags],
             owners=p.owners or [],
-            updated_at=p.updated_at
+            updated_at=p.updated_at,
+            default_team_members=p.default_team_members or []
         )
         result_list.append(play_schema)
     return result_list
@@ -115,7 +116,8 @@ async def get_play(play_id: str, db: AsyncSession = Depends(get_db)):
         geo=play.geo,
         tags=[t.name for t in play.tags],
         owners=play.owners or [],
-        updated_at=play.updated_at
+        updated_at=play.updated_at,
+        default_team_members=play.default_team_members or []
     )
 
 @router.delete("/plays/{play_id}")
@@ -169,7 +171,10 @@ async def update_play(play_id: str, play_update: PlayCreate, db: AsyncSession = 
         
     db_play.stages = final_stages
     db_play.owners = play_update.owners
+    db_play.stages = final_stages
+    db_play.owners = play_update.owners
     db_play.collections = play_update.collections
+    db_play.default_team_members = play_update.default_team_members
     
     # Update Technologies (Full Replace)
     if play_update.technologies is not None:
@@ -206,7 +211,8 @@ async def update_play(play_id: str, play_update: PlayCreate, db: AsyncSession = 
         geo=db_play.geo,
         tags=[t.name for t in db_play.tags],
         owners=db_play.owners or [],
-        updated_at=db_play.updated_at
+        updated_at=db_play.updated_at,
+        default_team_members=db_play.default_team_members or []
     )
 
 # --- Assets ---
@@ -426,7 +432,9 @@ async def create_opportunity(input: OpportunityInput, db: AsyncSession = Depends
     # Explicitly set empty list to avoid MissingGreenlet on lazy load
     attributes.set_committed_value(opp, 'opportunity_plays', [])
     
-    # Handle Plays
+    attributes.set_committed_value(opp, 'opportunity_plays', [])
+    
+    # Handle Plays (and copy default team members)
     if input.plays:
         for play_id in input.plays:
             # Verify play exists
@@ -460,6 +468,12 @@ async def create_opportunity(input: OpportunityInput, db: AsyncSession = Depends
                         opp_play.stage_instances.append(stage_instance)
                 
                 opp.opportunity_plays.append(opp_play)
+                
+                # Copy default team members from play
+                if play.default_team_members:
+                    current_members = set(opp.team_member_user_ids or [])
+                    current_members.update(play.default_team_members)
+                    opp.team_member_user_ids = list(current_members)
     
     await db.commit()
     
@@ -552,6 +566,12 @@ async def update_opportunity(opp_id: str, opp_update: OpportunityUpdate, db: Asy
                          opp_play.stage_instances.append(stage_instance)
                 
                 opp.opportunity_plays.append(opp_play)
+                
+                # Copy default team members from play on Add
+                if play.default_team_members:
+                    current_members = set(opp.team_member_user_ids or [])
+                    current_members.update(play.default_team_members)
+                    opp.team_member_user_ids = list(current_members)
         
     await db.commit()
     await db.refresh(opp)
@@ -644,7 +664,8 @@ async def create_play(play: PlayCreate, db: AsyncSession = Depends(get_db)):
 
         stages=[s.dict() for s in play.stages] if play.stages else _populate_stages_from_scope(play.stage_scope),
         owners=play.owners,
-        collections=play.collections
+        collections=play.collections,
+        default_team_members=play.default_team_members
     )
     
     # Handle Technologies
