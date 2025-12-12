@@ -9,7 +9,7 @@ from ..database import get_db
 from ..models_db import (
     AssetModel, GTMPlayModel, OpportunityModel, OpportunityPlayModel, 
     OpportunityStageInstanceModel, TagModel, OfferingModel, TechnologyModel, 
-    SectorModel, GeoModel, StageModel, StageNoteModel, UserModel, PersonModel
+    SectorModel, GeoModel, StageModel, StageNoteModel, PersonModel
 )
 from .schemas_v2 import (
     Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate, StageUpdate, OpportunityStageInstance, OpportunityUpdate, AssetUpdate, StageNote, StageNoteCreate,
