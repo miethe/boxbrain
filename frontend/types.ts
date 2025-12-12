@@ -102,6 +102,14 @@ export interface AssetCollection {
   asset_ids: string[];
 }
 
+export interface Person {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+  technologies: string[];
+}
+
 // --- Opportunity Entities ---
 
 export interface IntegrationLink {

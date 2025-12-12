@@ -30,11 +30,13 @@ interface AssetDetailModalProps {
     dictionary: Dictionary;
     onClose: () => void;
     onViewPlay: (playId: string) => void;
+    onEdit?: (asset: Asset) => void;
 }
 
 type TabType = 'overview' | 'content' | 'history' | 'notes';
 
-export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, dictionary, onClose, onViewPlay }) => {
+export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, dictionary, onClose, onViewPlay, onEdit }) => {
+
     const [activeTab, setActiveTab] = useState<TabType>('overview');
 
     // Mock data
@@ -56,7 +58,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, dicti
                 <button
                     className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors"
                     title="Edit"
-                    onClick={() => alert("Edit functionality coming soon")} // Wired up Edit button
+                    onClick={() => onEdit && onEdit(asset)}
                 >
                     <Edit size={20} />
                 </button>
@@ -69,8 +71,8 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, dicti
                                 await deleteAsset(asset.id);
                                 onClose();
                                 window.location.reload();
-                            } catch (e) {
-                                alert('Failed to delete asset');
+                            } catch (e: any) {
+                                alert('Failed to delete asset: ' + (e.message || "Unknown error"));
                             }
                         }
                     }}

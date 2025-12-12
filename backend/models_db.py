@@ -44,6 +44,14 @@ offering_technologies = Table(
     Column('technology_id', Integer, ForeignKey('technologies.id'), primary_key=True)
 )
 
+# Association table for many-to-many relationship between People and Technologies
+person_technologies = Table(
+    'person_technologies',
+    Base.metadata,
+    Column('person_id', String, ForeignKey('people.id'), primary_key=True),
+    Column('technology_id', Integer, ForeignKey('technologies.id'), primary_key=True)
+)
+
 class AssetModel(Base):
     __tablename__ = "assets"
 
@@ -149,6 +157,7 @@ class TechnologyModel(Base):
     offerings = relationship("OfferingModel", secondary=offering_technologies, back_populates="technologies")
     plays = relationship("GTMPlayModel", secondary=play_technologies, back_populates="technologies")
     opportunities = relationship("OpportunityModel", secondary=opportunity_technologies, back_populates="primary_technologies")
+    people = relationship("PersonModel", secondary=person_technologies, back_populates="technologies")
 
 class SectorModel(Base):
     __tablename__ = "sectors"
@@ -282,5 +291,17 @@ class SystemSettingsModel(Base):
     key = Column(String, primary_key=True, unique=True, index=True)
     value = Column(String, nullable=True)
     description = Column(String, nullable=True)
+
+
+class PersonModel(Base):
+    __tablename__ = "people"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    role = Column(String, nullable=True)
+    
+    technologies = relationship("TechnologyModel", secondary=person_technologies, back_populates="people")
+
 
 

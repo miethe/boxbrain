@@ -292,6 +292,7 @@ export default function App() {
             dictionary={dictionary}
             onClose={handleCloseModal}
             onViewAsset={handleViewAsset}
+            onEdit={handleEditPlay}
           />
         )}
       </Modal>
@@ -308,6 +309,7 @@ export default function App() {
             dictionary={dictionary}
             onClose={handleCloseModal}
             onViewPlay={handleViewPlay}
+            onEdit={handleEditAsset}
           />
         )}
       </Modal>

@@ -4,7 +4,8 @@ import { AdminDictionaryTab } from './AdminDictionaryTab';
 import { AnalyticsTab } from './admin/AnalyticsTab';
 import { GovernanceTab } from './admin/GovernanceTab';
 import { SettingsTab } from './admin/SettingsTab';
-import { Settings, Database, Tag, Globe, Layers, Cpu, Activity, BarChart2, ShieldAlert, Sliders, Upload } from 'lucide-react';
+import { PeopleTab } from './admin/PeopleTab';
+import { Settings, Database, Tag, Globe, Layers, Cpu, Activity, BarChart2, ShieldAlert, Sliders, Upload, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImportModal } from './admin/ImportModal';
 
@@ -20,6 +21,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ dictionary, onRefresh }) =
 
     const tabs = [
         { id: 'offerings', label: 'Offerings', icon: Layers },
+        { id: 'people', label: 'People', icon: Users },
         { id: 'technologies', label: 'Technologies', icon: Cpu },
         { id: 'stages', label: 'Stages', icon: Activity },
         { id: 'sectors', label: 'Sectors', icon: Globe },
@@ -32,6 +34,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ dictionary, onRefresh }) =
 
     const renderContent = () => {
         switch (activeTab) {
+            case 'people':
+                return <PeopleTab availableTechnologies={dictionary.technologies} />;
             case 'analytics':
                 return <AnalyticsTab />;
             case 'governance':

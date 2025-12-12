@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 from typing import List, Dict
 from ..database import get_db
 from ..models_db import (
     AssetModel, GTMPlayModel, OpportunityModel, OpportunityPlayModel, 
     OpportunityStageInstanceModel, TagModel, OfferingModel, TechnologyModel, 
-    SectorModel, GeoModel, StageModel
+    SectorModel, GeoModel, StageModel, StageNoteModel, UserModel, PersonModel
 )
 from .schemas_v2 import (
-    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate, StageUpdate, OpportunityStageInstance, OpportunityUpdate
+    Dictionary, Play, Asset, AssetCreate, Opportunity, OpportunityInput, OpportunityPlay, PlayCreate, StageUpdate, OpportunityStageInstance, OpportunityUpdate, AssetUpdate, StageNote, StageNoteCreate,
+    Person, PersonCreate, PersonUpdate
 )
 import uuid
 
@@ -123,18 +126,34 @@ async def get_play(play_id: str, db: AsyncSession = Depends(get_db)):
 @router.delete("/plays/{play_id}")
 async def delete_play(play_id: str, db: AsyncSession = Depends(get_db)):
     try:
+        # Check if ID is int (legacy) or str (v2) - DB is integer for now usually
         pid = int(play_id)
         stmt = select(GTMPlayModel).filter(GTMPlayModel.id == pid)
         result = await db.execute(stmt)
         play = result.scalars().first()
     except ValueError:
+        # If not int, maybe it's uuid? For now assuming int based on current code
         raise HTTPException(status_code=400, detail="Invalid Play ID format")
 
     if not play:
         raise HTTPException(status_code=404, detail="Play not found")
 
-    await db.delete(play)
-    await db.commit()
+    try:
+        await db.delete(play)
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        # Check for foreign key violation
+        if 'violates foreign key constraint' in str(e.orig):
+            raise HTTPException(
+                status_code=409, 
+                detail="Cannot delete Play because it is currently linked to one or more Opportunities. Please remove it from all Opportunities before deleting."
+            )
+        raise HTTPException(status_code=400, detail=f"Database integrity error: {str(e.orig)}")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
     return {"status": "success", "message": "Play deleted"}
 
 @router.put("/plays/{play_id}", response_model=Play)
@@ -335,9 +354,19 @@ async def delete_asset(asset_id: str, db: AsyncSession = Depends(get_db)):
     return {"status": "success", "message": "Asset deleted"}
 
 @router.put("/assets/{asset_id}", response_model=Asset)
-async def update_asset(asset_id: str, asset_update: AssetCreate, db: AsyncSession = Depends(get_db)):
-    # Helper to clean up imports if needed, but they are top level
-    from sqlalchemy.orm import selectinload
+async def update_asset(
+    asset_id: str, 
+    metadata_json: str = Form(...),
+    file: UploadFile = File(None),
+    db: AsyncSession = Depends(get_db)
+):
+    # Parse metadata
+    try:
+        asset_data = json.loads(metadata_json)
+        asset_update = AssetUpdate(**asset_data)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid metadata JSON: {str(e)}")
+
     stmt = select(AssetModel).options(selectinload(AssetModel.tags)).filter(AssetModel.id == asset_id)
     result = await db.execute(stmt)
     db_asset = result.scalars().first()
@@ -345,17 +374,24 @@ async def update_asset(asset_id: str, asset_update: AssetCreate, db: AsyncSessio
     if not db_asset:
         raise HTTPException(status_code=404, detail="Asset not found")
         
-    db_asset.title = asset_update.title
-    db_asset.description = asset_update.description
-    db_asset.kind = asset_update.kind
-    db_asset.purpose = asset_update.purpose
-    db_asset.default_stage = asset_update.default_stage
-    db_asset.uri = asset_update.uri
-    db_asset.owners = asset_update.owners
-    db_asset.offerings = asset_update.offerings
-    db_asset.technologies = asset_update.technologies
+    # Update fields if provided
+    if asset_update.title is not None: db_asset.title = asset_update.title
+    if asset_update.description is not None: db_asset.description = asset_update.description
+    if asset_update.kind is not None: db_asset.kind = asset_update.kind
+    if asset_update.purpose is not None: db_asset.purpose = asset_update.purpose
+    if asset_update.default_stage is not None: db_asset.default_stage = asset_update.default_stage
+    if asset_update.uri is not None: db_asset.uri = asset_update.uri
+    if asset_update.owners is not None: db_asset.owners = asset_update.owners
+    if asset_update.offerings is not None: db_asset.offerings = asset_update.offerings
+    if asset_update.technologies is not None: db_asset.technologies = asset_update.technologies
+    if asset_update.links is not None: db_asset.links = [l.dict() for l in asset_update.links]
     
-    # Note: Not handling linked_* lists deeply here for brevity, assume simplistic update
+    # Handle file update if provided (simple mock or overwrite for now as we don't have full storage service in this context)
+    if file:
+        # In a real scenario, we'd delete old file and save new one
+        # For now, just updating the filename to simulate
+        db_asset.original_filename = file.filename
+        # db_asset.file_path = ...
     
     await db.commit()
     await db.refresh(db_asset)
@@ -372,7 +408,9 @@ async def update_asset(asset_id: str, asset_update: AssetCreate, db: AsyncSessio
         owners=db_asset.owners or [],
         created_at=db_asset.created_at,
         updated_at=db_asset.updated_at,
-        technologies=db_asset.technologies or []
+        technologies=db_asset.technologies or [],
+        links=[Asset.links.default_factory(**l) for l in (db_asset.links or [])] if db_asset.links else [],
+        offerings=db_asset.offerings or []
     )
 
 # --- Opportunities ---
@@ -1030,3 +1068,99 @@ async def import_dictionary_items(
         "total_processed": len(items_to_add),
         "errors": errors
     }
+@router.get("/people", response_model=List[Person])
+async def get_people(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.orm import selectinload
+    stmt = select(PersonModel).options(selectinload(PersonModel.technologies))
+    result = await db.execute(stmt)
+    people = result.scalars().all()
+    
+    return [
+        Person(
+            id=p.id,
+            name=p.name,
+            email=p.email,
+            role=p.role,
+            technologies=[t.name for t in p.technologies]
+        ) for p in people
+    ]
+
+@router.post("/people", response_model=Person)
+async def create_person(person: PersonCreate, db: AsyncSession = Depends(get_db)):
+    db_person = PersonModel(
+        id=str(uuid.uuid4()),
+        name=person.name,
+        email=person.email,
+        role=person.role
+    )
+    
+    if person.technologies:
+        techs = await db.execute(select(TechnologyModel).filter(TechnologyModel.name.in_(person.technologies)))
+        db_person.technologies = techs.scalars().all()
+        
+    db.add(db_person)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Person with this email already exists")
+        
+    await db.refresh(db_person)
+    # Reload for relationships
+    stmt = select(PersonModel).options(selectinload(PersonModel.technologies)).filter(PersonModel.id == db_person.id)
+    result = await db.execute(stmt)
+    db_person = result.scalars().first()
+    
+    return Person(
+        id=db_person.id,
+        name=db_person.name,
+        email=db_person.email,
+        role=db_person.role,
+        technologies=[t.name for t in db_person.technologies]
+    )
+
+@router.put("/people/{person_id}", response_model=Person)
+async def update_person(person_id: str, person_update: PersonUpdate, db: AsyncSession = Depends(get_db)):
+    stmt = select(PersonModel).options(selectinload(PersonModel.technologies)).filter(PersonModel.id == person_id)
+    result = await db.execute(stmt)
+    db_person = result.scalars().first()
+    
+    if not db_person:
+        raise HTTPException(status_code=404, detail="Person not found")
+        
+    if person_update.name is not None: db_person.name = person_update.name
+    if person_update.email is not None: db_person.email = person_update.email
+    if person_update.role is not None: db_person.role = person_update.role
+    
+    if person_update.technologies is not None:
+        techs = await db.execute(select(TechnologyModel).filter(TechnologyModel.name.in_(person_update.technologies)))
+        db_person.technologies = techs.scalars().all()
+        
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Email already exists")
+        
+    await db.refresh(db_person)
+    
+    return Person(
+        id=db_person.id,
+        name=db_person.name,
+        email=db_person.email,
+        role=db_person.role,
+        technologies=[t.name for t in db_person.technologies]
+    )
+
+@router.delete("/people/{person_id}")
+async def delete_person(person_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(PersonModel).filter(PersonModel.id == person_id)
+    result = await db.execute(stmt)
+    person = result.scalars().first()
+    
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+        
+    await db.delete(person)
+    await db.commit()
+    return {"status": "success", "message": "Person deleted"}

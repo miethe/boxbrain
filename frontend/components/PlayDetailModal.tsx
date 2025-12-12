@@ -31,13 +31,15 @@ interface PlayDetailModalProps {
   dictionary: Dictionary;
   onClose: () => void;
   onViewAsset: (assetId: string) => void;
+  onEdit?: (play: Play) => void;
 }
 
 type TabType = 'overview' | 'assets' | 'history' | 'notes';
 type AssetViewType = 'list' | 'grid';
 type GroupByType = 'stage' | 'collection' | 'none';
 
-export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictionary, onClose, onViewAsset }) => {
+export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictionary, onClose, onViewAsset, onEdit }) => {
+
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   // Mock data fetching
@@ -57,7 +59,7 @@ export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictiona
         <button
           className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors"
           title="Edit"
-          onClick={() => alert("Edit functionality coming soon")}
+          onClick={() => onEdit && onEdit(play)}
         >
           <Edit size={20} />
         </button>
@@ -71,8 +73,13 @@ export const PlayDetailModal: React.FC<PlayDetailModalProps> = ({ play, dictiona
                 onClose();
                 // Ideally trigger a refresh of the parent list here
                 window.location.reload();
-              } catch (e) {
-                alert('Failed to delete play');
+              } catch (e: any) {
+                // Check if it's the specific 409 error we added in backend
+                if (e.message && e.message.includes("Cannot delete Play")) {
+                  alert(e.message.replace("API Error 409: ", ""));
+                } else {
+                  alert('Failed to delete play: ' + (e.message || "Unknown error"));
+                }
               }
             }
           }}

@@ -1,6 +1,6 @@
 
 
-import { Asset, Dictionary, OpportunityInput, Play, Comment, HistoryItem, AssetCollection, Opportunity, OpportunityPlay, StageNote } from "../types";
+import { Asset, Dictionary, OpportunityInput, Play, Comment, HistoryItem, AssetCollection, Opportunity, OpportunityPlay, StageNote, Person } from "../types";
 
 const API_BASE = '/api/v2';
 
@@ -371,4 +371,30 @@ export const deleteNote = async (id: string): Promise<void> => {
   return fetchApi(`/notes/${id}`, {
     method: 'DELETE'
   });
+};
+
+// --- People ---
+
+export const getPeople = async (): Promise<Person[]> => {
+  return fetchApi<Person[]>('/people');
+};
+
+export const createPerson = async (personData: Partial<Person>): Promise<Person> => {
+  return fetchApi<Person>('/people', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(personData)
+  });
+};
+
+export const updatePerson = async (id: string, personData: Partial<Person>): Promise<Person> => {
+  return fetchApi<Person>(`/people/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(personData)
+  });
+};
+
+export const deletePerson = async (id: string): Promise<void> => {
+  return fetchApi(`/people/${id}`, { method: 'DELETE' });
 };

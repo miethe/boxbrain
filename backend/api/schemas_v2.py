@@ -50,6 +50,46 @@ class AssetCreate(BaseModel):
     linked_opportunity_ids: Optional[List[str]] = []
     linked_asset_ids: Optional[List[str]] = []
 
+class AssetUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    kind: Optional[str] = None
+    uri: Optional[str] = None
+    purpose: Optional[str] = None
+    default_stage: Optional[str] = None
+    collections: Optional[List[str]] = None
+    offerings: Optional[List[str]] = None
+    linked_play_ids: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    owners: Optional[List[str]] = None
+    technologies: Optional[List[str]] = None
+    links: Optional[List[AssetLink]] = None
+    linked_opportunity_ids: Optional[List[str]] = None
+    linked_asset_ids: Optional[List[str]] = None
+
+
+class PersonBase(BaseModel):
+    name: str
+    email: str
+    role: Optional[str] = None
+    technologies: List[str] = []
+
+class PersonCreate(PersonBase):
+    pass
+
+class PersonUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    technologies: Optional[List[str]] = None
+
+class Person(PersonBase):
+    id: str
+    
+    class Config:
+        from_attributes = True
+
+
 class PlayStageDefinition(BaseModel):
     key: str
     label: str
